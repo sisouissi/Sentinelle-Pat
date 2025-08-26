@@ -1,0 +1,7 @@
+{
+  "name": "Sentinelle Version Patient",
+  "description": "Une application intelligente pour prédire les exacerbations sévères de BPCO et l'insuffisance respiratoire. Elle fournit aux patients un score de risque en temps réel, un suivi des signes vitaux et des recommandations personnalisées via un agent conversationnel alimenté par l'IA.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
