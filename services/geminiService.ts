@@ -1,18 +1,21 @@
-
 import { GoogleGenAI, Type } from '@google/genai';
 import type { PatientData, ChatMessage, RiskLevel } from '../types';
 import { translations } from '../locales/fr'; // Default language for structure
 
+// The API key is retrieved from the environment variable `process.env.API_KEY`.
+// This variable is expected to be set in the deployment environment (e.g., Vercel).
 const API_KEY = process.env.API_KEY;
 
+// Check if the API key is provided.
 export const isAiAvailable = !!API_KEY;
 
-if (!API_KEY) {
-  console.warn("La variable d'environnement API_KEY n'est pas définie. Les fonctionnalités d'IA seront désactivées et des réponses de secours seront utilisées.");
+
+if (!isAiAvailable) {
+  console.warn("La clé API Gemini (API_KEY) n'est pas configurée dans les variables d'environnement. Les fonctionnalités d'IA seront désactivées.");
 }
 
-// Initialise l'IA uniquement si la clé API est fournie.
-const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
+// Initialize the AI only if the API key is provided.
+const ai = isAiAvailable ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
 type Language = 'fr' | 'en' | 'ar';
 
