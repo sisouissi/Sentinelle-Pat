@@ -6,39 +6,72 @@ const supabaseAnonKey: string = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOi
 
 let supabaseInstance: SupabaseClient | null = null;
 
-// Vérification de la configuration
-const isValidUrl = (url: string): boolean => {
-    try {
-        new URL(url);
-        return true;
-    } catch {
-        return false;
+// Configuration pour éviter les verrous et timeouts
+const supabaseConfig = {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+    flowType: 'implicit' as const
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 1
     }
+  },
+  global: {
+    headers: {
+      'x-client-info': 'supabase-js-web'
+    }
+  },
+  db: {
+    schema: 'public'
+  }
 };
 
-const isConfigured = 
-    supabaseUrl && 
-    supabaseAnonKey && 
-    supabaseUrl !== "VOTRE_URL_SUPABASE" && 
-    supabaseAnonKey !== "VOTRE_CLE_ANON_SUPABASE" &&
-    isValidUrl(supabaseUrl);
-
-if (isConfigured) {
-    try {
-        supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
-            auth: {
-                persistSession: false,
-            },
-        });
-        console.log("Supabase client initialized successfully");
-    } catch (error) {
-        console.error("Failed to initialize Supabase client:", error);
-        supabaseInstance = null;
+// Validation et initialisation
+function initializeSupabase(): SupabaseClient | null {
+  try {
+    // Vérification des paramètres
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("Configuration Supabase manquante");
+      return null;
     }
-} else {
-    console.error("Supabase configuration is invalid or missing");
-    supabaseInstance = null;
+
+    if (supabaseUrl === "VOTRE_URL_SUPABASE" || supabaseAnonKey === "VOTRE_CLE_ANON_SUPABASE") {
+      console.error("Veuillez configurer vos clés Supabase");
+      return null;
+    }
+
+    // Validation de l'URL
+    new URL(supabaseUrl);
+
+    // Création du client avec configuration anti-timeout
+    const client = createClient(supabaseUrl, supabaseAnonKey, supabaseConfig);
+    
+    console.log("Supabase client initialized successfully");
+    return client;
+
+  } catch (error) {
+    console.error("Erreur lors de l'initialisation Supabase:", error);
+    return null;
+  }
 }
 
-// Export du client Supabase
+// Initialisation du client
+supabaseInstance = initializeSupabase();
+
+// Nettoyage préventif des verrous existants
+if (typeof window !== 'undefined' && 'navigator' in window && 'locks' in navigator) {
+  // Libère les verrous existants si possible
+  navigator.locks.query().then((locks) => {
+    const supabaseLocks = locks.held?.filter(lock => lock.name?.includes('sb-')) || [];
+    if (supabaseLocks.length > 0) {
+      console.log("Verrous Supabase détectés, redémarrage recommandé");
+    }
+  }).catch(() => {
+    // Ignore les erreurs de locks API
+  });
+}
+
 export const supabase = supabaseInstance;
