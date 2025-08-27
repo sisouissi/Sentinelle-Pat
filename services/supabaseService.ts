@@ -67,7 +67,7 @@ export async function getPatientByPairingCode(pairingCode: string): Promise<Pati
             *,
             measurements:measurements!patient_id ( timestamp, spo2, heart_rate ),
             smartphone_data ( * ),
-            medications:medications!patient_id ( *, schedules:medication_schedules ( * ) ),
+            medications:medications!patient_id ( *, schedules:medication_schedules!medication_id ( * ) ),
             medication_logs:medication_logs!patient_id ( * )
         `)
         .eq('code', pairingCode.toUpperCase())
@@ -111,7 +111,7 @@ export async function getPatientById(id: number): Promise<PatientData | null> {
             *,
             measurements:measurements!patient_id ( timestamp, spo2, heart_rate ),
             smartphone_data ( * ),
-            medications:medications!patient_id ( *, schedules:medication_schedules ( * ) ),
+            medications:medications!patient_id ( *, schedules:medication_schedules!medication_id ( * ) ),
             medication_logs:medication_logs!patient_id ( * )
         `)
         .eq('id', id)
@@ -171,7 +171,7 @@ export function listenToPatientChanges(callback: (patients: PatientData[]) => vo
             *,
             measurements:measurements!patient_id ( timestamp, spo2, heart_rate ),
             smartphone_data ( * ),
-            medications:medications!patient_id ( *, schedules:medication_schedules ( * ) ),
+            medications:medications!patient_id ( *, schedules:medication_schedules!medication_id ( * ) ),
             medication_logs:medication_logs!patient_id ( * )
         `)
         .order('timestamp', { foreignTable: 'measurements', ascending: false })
