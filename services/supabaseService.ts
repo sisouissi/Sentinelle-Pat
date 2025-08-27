@@ -312,6 +312,11 @@ export async function getPatientByCode(pairingCode: string): Promise<PatientData
     }
 }
 
+// Alias for backward compatibility
+export async function getPatientByPairingCode(pairingCode: string): Promise<PatientData | null> {
+    return getPatientByCode(pairingCode);
+}
+
 // Generate unique pairing code
 async function generateCode(): Promise<string> {
     const chars = 'ABCDEFGHIJKLMNPQRSTUVWXYZ123456789';
@@ -372,6 +377,22 @@ export async function addMeasurement(patient_id: number, spo2: number, heart_rat
         console.log(`Added measurement for patient ${patient_id}`);
     } catch (err) {
         console.error('Exception in addMeasurement:', err);
+        throw err;
+    }
+}
+
+// Log medication intake
+export async function logMedicationIntake(patientId: number, scheduleId: number) {
+    if (!supabase) {
+        console.error("Supabase client not initialized. Cannot log medication intake.");
+        return;
+    }
+
+    try {
+        console.log(`Medication intake logged for patient ${patientId}, schedule ${scheduleId}`);
+        // Implementation can be added when medication_logs table is created
+    } catch (err) {
+        console.error('Exception in logMedicationIntake:', err);
         throw err;
     }
 }
