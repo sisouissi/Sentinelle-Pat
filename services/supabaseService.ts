@@ -1,532 +1,416 @@
 import { supabase } from './supabaseClient';
-import type { PatientData, SmartphoneData, NewPatient, ChatMessage } from '../types';
-import { getDefaultSmartphoneData } from './mockDataService';
+import type { PatientData, SmartphoneData, ChatMessage, Medication, NewPatient } from '../types';
+import { allPatients as mockPatients, getDefaultSmartphoneData } from './mockDataService';
+import { getEnvironmentalData } from './openWeatherService';
 
 // Helper to transform flat smartphone_data from DB to the nested structure the app uses
 function transformSmartphoneData(flatData: any): SmartphoneData {
-  if (!flatData) return getDefaultSmartphoneData();
-  
+  if (!flatData) return getDefaultSmartphoneData(); // Return default if data is missing
   return {
     activity: {
-      steps: flatData.steps || 0,
-      distanceKm: flatData.distance_km || 0,
-      activeMinutes: flatData.active_minutes || 0,
-      sedentaryMinutes: flatData.sedentary_minutes || 0,
-      floorsClimbed: flatData.floors_climbed || 0,
-      movementSpeedKmh: flatData.movement_speed_kmh || 0,
+      steps: flatData.steps,
+      distanceKm: flatData.distance_km,
+      activeMinutes: flatData.active_minutes,
+      sedentaryMinutes: flatData.sedentary_minutes,
+      floorsClimbed: flatData.floors_climbed,
+      movementSpeedKmh: flatData.movement_speed_kmh,
     },
     sleep: {
-      totalSleepHours: flatData.total_sleep_hours || 0,
-      sleepEfficiency: flatData.sleep_efficiency || 0,
-      awakeMinutes: flatData.awake_minutes || 0,
-      remSleepMinutes: 0,
-      deepSleepMinutes: flatData.deep_sleep_minutes || 0,
-      sleepPosition: flatData.sleep_position || 'unknown',
-      nightMovements: flatData.night_movements || 0,
+      totalSleepHours: flatData.total_sleep_hours,
+      sleepEfficiency: flatData.sleep_efficiency,
+      awakeMinutes: flatData.awake_minutes,
+      remSleepMinutes: 0, // Not in DB schema, default
+      deepSleepMinutes: flatData.deep_sleep_minutes,
+      sleepPosition: flatData.sleep_position,
+      nightMovements: flatData.night_movements,
     },
     cough: {
-      coughFrequencyPerHour: flatData.cough_frequency_per_hour || 0,
-      coughIntensityDb: flatData.cough_intensity_db || 0,
-      nightCoughEpisodes: flatData.night_cough_episodes || 0,
-      coughPattern: flatData.cough_pattern || 'normal',
-      respiratoryRate: flatData.respiratory_rate || 0,
+      coughFrequencyPerHour: flatData.cough_frequency_per_hour,
+      coughIntensityDb: flatData.cough_intensity_db,
+      nightCoughEpisodes: flatData.night_cough_episodes,
+      coughPattern: flatData.cough_pattern,
+      respiratoryRate: flatData.respiratory_rate,
     },
     environment: {
-      homeTimePercent: flatData.home_time_percent || 0,
-      travelRadiusKm: flatData.travel_radius_km || 0,
-      airQualityIndex: flatData.air_quality_index || 0,
+      homeTimePercent: flatData.home_time_percent,
+      travelRadiusKm: flatData.travel_radius_km,
+      airQualityIndex: flatData.air_quality_index,
       weather: {
-        temperatureC: flatData.temperature_c || 0,
-        humidityPercent: flatData.humidity_percent || 0,
+        temperatureC: flatData.temperature_c,
+        humidityPercent: flatData.humidity_percent,
       },
     },
     reported: {
       symptoms: {
-        breathlessness: flatData.symptoms_breathlessness || 0,
-        cough: flatData.symptoms_cough || 0,
-        fatigue: flatData.symptoms_fatigue || 0,
+        breathlessness: flatData.symptoms_breathlessness,
+        cough: flatData.symptoms_cough,
+        fatigue: flatData.symptoms_fatigue,
       },
       medication: {
-        adherencePercent: flatData.medication_adherence_percent || 0,
-        missedDoses: flatData.missed_doses || 0,
+        adherencePercent: flatData.medication_adherence_percent,
+        missedDoses: flatData.missed_doses,
       },
       qualityOfLife: {
-        CAT: flatData.quality_of_life_cat || 0,
+        CAT: flatData.quality_of_life_cat,
       },
     },
   };
 }
 
-// Helper to transform nested smartphone data for DB insertion
-function flattenSmartphoneData(nestedData: SmartphoneData): any {
+export async function getPatientByPairingCode(pairingCode: string): Promise<PatientData | null> {
+    if (!supabase) {
+        return mockPatients.find(p => p.code === pairingCode.toUpperCase()) || null;
+    }
+    const { data, error } = await supabase
+        .from('patients')
+        .select(`
+            *,
+            measurements:measurements!patient_id ( timestamp, spo2, heart_rate ),
+            smartphone_data ( * ),
+            medications:medications!patient_id ( *, schedules:medication_schedules ( * ) ),
+            medication_logs:medication_logs!patient_id ( * )
+        `)
+        .eq('code', pairingCode.toUpperCase())
+        .order('timestamp', { foreignTable: 'measurements', ascending: false })
+        .limit(60, { foreignTable: 'measurements' })
+        .single();
+
+    if (error) {
+        // 'PGRST116' means "exact one row not found", which is expected for an invalid code.
+        if (error.code === 'PGRST116') {
+            return null;
+        }
+        // For all other database errors, log and throw.
+        console.error('Error fetching patient by pairing code:', error);
+        throw new Error(error.message || 'An unexpected database error occurred.');
+    }
+
+    if (!data) {
+        return null;
+    }
+
     return {
-        steps: nestedData.activity.steps,
-        distance_km: nestedData.activity.distanceKm,
-        active_minutes: nestedData.activity.activeMinutes,
-        sedentary_minutes: nestedData.activity.sedentaryMinutes,
-        floors_climbed: nestedData.activity.floorsClimbed,
-        movement_speed_kmh: nestedData.activity.movementSpeedKmh,
-        total_sleep_hours: nestedData.sleep.totalSleepHours,
-        sleep_efficiency: nestedData.sleep.sleepEfficiency,
-        awake_minutes: nestedData.sleep.awakeMinutes,
-        deep_sleep_minutes: nestedData.sleep.deepSleepMinutes,
-        sleep_position: nestedData.sleep.sleepPosition,
-        night_movements: nestedData.sleep.nightMovements,
-        cough_frequency_per_hour: nestedData.cough.coughFrequencyPerHour,
-        cough_intensity_db: nestedData.cough.coughIntensityDb,
-        night_cough_episodes: nestedData.cough.nightCoughEpisodes,
-        cough_pattern: nestedData.cough.coughPattern,
-        respiratory_rate: nestedData.cough.respiratoryRate,
-        home_time_percent: nestedData.environment.homeTimePercent,
-        travel_radius_km: nestedData.environment.travelRadiusKm,
-        air_quality_index: nestedData.environment.airQualityIndex,
-        temperature_c: nestedData.environment.weather.temperatureC,
-        humidity_percent: nestedData.environment.weather.humidityPercent,
-        symptoms_breathlessness: nestedData.reported.symptoms.breathlessness,
-        symptoms_cough: nestedData.reported.symptoms.cough,
-        symptoms_fatigue: nestedData.reported.symptoms.fatigue,
-        medication_adherence_percent: nestedData.reported.medication.adherencePercent,
-        missed_doses: nestedData.reported.medication.missedDoses,
-        quality_of_life_cat: nestedData.reported.qualityOfLife.CAT,
+        ...data,
+        smartphone_data_id: data.smartphone_data_id,
+        measurements: data.measurements.reverse(),
+        smartphone: transformSmartphoneData(data.smartphone_data),
+        medications: data.medications || [],
+        medication_logs: data.medication_logs || [],
     };
 }
 
-// Test function to diagnose Supabase connection and query issues
-export async function testSupabaseQueries() {
+export async function getPatientById(id: number): Promise<PatientData | null> {
     if (!supabase) {
-        console.error("Supabase not initialized");
-        return;
+        // Fallback to mock data if supabase isn't configured, useful for local dev
+        const patient = mockPatients.find(p => p.id === id);
+        return patient || null;
     }
+    const { data, error } = await supabase
+        .from('patients')
+        .select(`
+            *,
+            measurements:measurements!patient_id ( timestamp, spo2, heart_rate ),
+            smartphone_data ( * ),
+            medications:medications!patient_id ( *, schedules:medication_schedules ( * ) ),
+            medication_logs:medication_logs!patient_id ( * )
+        `)
+        .eq('id', id)
+        .order('timestamp', { foreignTable: 'measurements', ascending: false })
+        .limit(60, { foreignTable: 'measurements' })
+        .single();
 
-    console.log("Starting Supabase diagnostic tests...");
-
-    try {
-        const { data: patients, error: patientsError } = await supabase
-            .from('patients')
-            .select('*')
-            .limit(3);
-        console.log("Patients:", patients, "Error:", patientsError);
-
-        if (patientsError) {
-            console.error("Patients table query failed:", patientsError);
-            return;
+    if (error) {
+        // 'PGRST116' means "exact one row not found", which is expected for a non-existent ID.
+        if (error.code === 'PGRST116') {
+            return null;
         }
-
-        const { data: measurements, error: measurementsError } = await supabase
-            .from('measurements')
-            .select('*')
-            .limit(3);
-        console.log("Measurements:", measurements, "Error:", measurementsError);
-
-        const { data: smartphoneData, error: smartphoneError } = await supabase
-            .from('smartphone_data')
-            .select('*')
-            .limit(3);
-        console.log("Smartphone data:", smartphoneData, "Error:", smartphoneError);
-
-        if (patients && patients.length > 0) {
-            const { data: withMeasurements, error: relationError } = await supabase
-                .from('patients')
-                .select(`
-                    id, name,
-                    measurements ( timestamp, spo2, heart_rate )
-                `)
-                .eq('id', patients[0].id);
-            console.log("With measurements:", withMeasurements, "Error:", relationError);
-        }
-
-    } catch (err) {
-        console.error("Test error:", err);
-    }
-}
-
-// Sequential approach if relationship queries fail
-async function fetchPatientsSequentially(): Promise<PatientData[]> {
-    if (!supabase) return [];
-
-    try {
-        const { data: patients, error: patientsError } = await supabase
-            .from('patients')
-            .select('*');
-
-        if (patientsError) {
-            console.error("Failed to fetch patients:", patientsError);
-            throw patientsError;
-        }
-
-        if (!patients || patients.length === 0) {
-            return [];
-        }
-
-        console.log(`Fetching detailed data for ${patients.length} patients...`);
-
-        const enrichedPatients = await Promise.all(
-            patients.map(async (patient) => {
-                try {
-                    const [measurementsResult, smartphoneResult] = await Promise.all([
-                        supabase
-                            .from('measurements')
-                            .select('timestamp, spo2, heart_rate')
-                            .eq('patient_id', patient.id)
-                            .order('timestamp', { ascending: false })
-                            .limit(20),
-                        
-                        supabase
-                            .from('smartphone_data')
-                            .select('*')
-                            .eq('patient_id', patient.id)
-                            .maybeSingle(),
-                    ]);
-
-                    return {
-                        ...patient,
-                        measurements: measurementsResult.data?.reverse() || [],
-                        smartphone: transformSmartphoneData(smartphoneResult.data),
-                        medications: [],
-                        medication_logs: [],
-                    };
-                } catch (err) {
-                    console.error(`Error fetching data for patient ${patient.id}:`, err);
-                    return {
-                        ...patient,
-                        measurements: [],
-                        smartphone: getDefaultSmartphoneData(),
-                        medications: [],
-                        medication_logs: [],
-                    };
-                }
-            })
-        );
-
-        console.log("Successfully enriched all patients");
-        return enrichedPatients;
-
-    } catch (err) {
-        console.error("Sequential fetch failed:", err);
-        throw err;
-    }
-}
-
-// Robust function to fetch patients with relationships
-async function fetchAndTransformAllPatients(): Promise<PatientData[]> {
-    if (!supabase) {
-        throw new Error("Supabase client not initialized");
+        // For all other database errors, log and throw.
+        console.error('Error fetching patient by ID:', error);
+        throw new Error(error.message || 'An unexpected database error occurred.');
     }
 
-    try {
-        console.log("Attempting to fetch patients with relationships...");
-        
-        const { data: patients, error } = await supabase
-            .from('patients')
-            .select(`
-                *,
-                measurements ( timestamp, spo2, heart_rate ),
-                smartphone_data ( * )
-            `)
-            .order('timestamp', { foreignTable: 'measurements', ascending: false })
-            .limit(20, { foreignTable: 'measurements' });
-
-        if (error) {
-            console.warn("Relationship query failed, trying sequential approach:", error);
-            return await fetchPatientsSequentially();
-        }
-
-        if (!patients || patients.length === 0) {
-            console.log("No patients found");
-            return [];
-        }
-
-        console.log("Successfully fetched patients with relationships");
-        return patients.map((p: any) => ({
-            ...p,
-            measurements: p.measurements ? p.measurements.reverse() : [],
-            smartphone: transformSmartphoneData(Array.isArray(p.smartphone_data) ? p.smartphone_data[0] : p.smartphone_data),
-            medications: [],
-            medication_logs: [],
-        }));
-
-    } catch (err) {
-        console.error("Error in fetchAndTransformAllPatients:", err);
-        console.log("Falling back to sequential fetch...");
-        return await fetchPatientsSequentially();
-    }
-}
-
-// Main export function for doctor dashboard
-export async function getDoctorDashboardData(): Promise<PatientData[]> {
-    if (!supabase) {
-        console.warn("Supabase is not configured. Returning empty array.");
-        return [];
-    }
-
-    try {
-        return await fetchAndTransformAllPatients();
-    } catch (err) {
-        console.error("Failed to fetch real data, returning empty array:", err);
-        return [];
-    }
-}
-
-// Get patient by pairing code
-export async function getPatientByCode(pairingCode: string): Promise<PatientData | null> {
-    if (!supabase) {
-        console.error("Supabase client not initialized.");
+    if (!data) {
         return null;
     }
 
-    try {
-        const { data: patient, error } = await supabase
-            .from('patients')
-            .select(`
-                *,
-                measurements ( timestamp, spo2, heart_rate ),
-                smartphone_data ( * )
-            `)
-            .eq('code', pairingCode.toUpperCase())
-            .order('timestamp', { foreignTable: 'measurements', ascending: false })
-            .limit(60, { foreignTable: 'measurements' })
-            .maybeSingle();
-        
-        if (error) {
-            console.error('Error fetching patient by pairing code:', error);
-            return null;
-        }
-
-        if (!patient) {
-            console.log(`Pairing code ${pairingCode} not found.`);
-            return null;
-        }
-
-        console.log(`Found patient for code ${pairingCode}`);
-        return {
-            ...patient,
-            measurements: patient.measurements ? patient.measurements.reverse() : [],
-            smartphone: transformSmartphoneData(Array.isArray(patient.smartphone_data) ? patient.smartphone_data[0] : patient.smartphone_data),
-            medications: [],
-            medication_logs: [],
-        };
-
-    } catch (err) {
-        console.error('Exception in getPatientByCode:', err);
-        return null;
-    }
+    return {
+        ...data,
+        smartphone_data_id: data.smartphone_data_id,
+        measurements: data.measurements.reverse(),
+        smartphone: transformSmartphoneData(data.smartphone_data),
+        medications: data.medications || [],
+        medication_logs: data.medication_logs || [],
+    };
 }
 
-// Alias for backward compatibility
-export async function getPatientByPairingCode(pairingCode: string): Promise<PatientData | null> {
-    return getPatientByCode(pairingCode);
-}
 
-// Generate unique pairing code
-async function generateCode(): Promise<string> {
-    const chars = 'ABCDEFGHIJKLMNPQRSTUVWXYZ123456789';
-    let code = '';
-    let isUnique = false;
-    let attempts = 0;
-    const maxAttempts = 10;
-
-    if (!supabase) {
-        throw new Error("Supabase client not initialized.");
-    }
-
-    while (!isUnique && attempts < maxAttempts) {
-        code = `${Array.from({ length: 3 }, () => chars.charAt(Math.floor(Math.random() * chars.length))).join('')}-${Array.from({ length: 3 }, () => chars.charAt(Math.floor(Math.random() * chars.length))).join('')}`;
-        
-        const { data, error } = await supabase
-            .from('patients')
-            .select('id')
-            .eq('code', code)
-            .maybeSingle();
-
-        if (error) {
-            console.error('Error checking code uniqueness:', error);
-            attempts++;
-            continue;
-        }
-
-        if (!data) {
-            isUnique = true;
-        }
-        attempts++;
-    }
-
-    if (!isUnique) {
-        throw new Error('Failed to generate unique code after maximum attempts');
-    }
-
-    return code;
-}
-
-// Add measurement
 export async function addMeasurement(patient_id: number, spo2: number, heart_rate: number) {
     if (!supabase) {
         console.error("Supabase client not initialized. Measurement not sent.");
         return;
     }
+    const { error } = await supabase
+        .from('measurements')
+        .insert([{ patient_id, spo2, heart_rate }]);
 
-    try {
-        const { error } = await supabase
-            .from('measurements')
-            .insert([{ patient_id, spo2, heart_rate }]);
+    if (error) {
+        console.error('Error adding measurement:', error);
+        throw error;
+    }
+}
+
+export function listenToPatientChanges(callback: (patients: PatientData[]) => void): () => void {
+    if (!supabase) {
+        return () => {};
+    }
+
+    const fetchAndCallback = async () => {
+        const { data: patients, error } = await supabase!
+        .from('patients')
+        .select(`
+            *,
+            measurements:measurements!patient_id ( timestamp, spo2, heart_rate ),
+            smartphone_data ( * ),
+            medications:medications!patient_id ( *, schedules:medication_schedules ( * ) ),
+            medication_logs:medication_logs!patient_id ( * )
+        `)
+        .order('timestamp', { foreignTable: 'measurements', ascending: false })
+        .limit(60, { foreignTable: 'measurements' });
 
         if (error) {
-            console.error('Error adding measurement:', error);
-            throw error;
+            console.error('Error refetching patients on change:', error);
+            return;
         }
 
-        console.log(`Added measurement for patient ${patient_id}`);
-    } catch (err) {
-        console.error('Exception in addMeasurement:', err);
-        throw err;
-    }
+        const transformed = patients.map(p => ({
+            ...p,
+            smartphone_data_id: p.smartphone_data_id,
+            measurements: p.measurements.reverse(),
+            smartphone: transformSmartphoneData(p.smartphone_data),
+            medications: p.medications || [],
+            medication_logs: p.medication_logs || [],
+        }));
+        callback(transformed);
+    };
+
+    const channel = supabase
+        .channel('realtime-all')
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public' },
+            async (payload) => {
+                console.log('Change received!', payload.table);
+                // When a change occurs, refetch all data.
+                // This is simpler and more robust than trying to patch the state.
+                await fetchAndCallback();
+            }
+        )
+        .subscribe();
+    
+    return () => {
+        supabase.removeChannel(channel);
+    };
 }
 
-// Log medication intake
-export async function logMedicationIntake(patientId: number, scheduleId: number) {
+export async function getChatHistory(patientId: number): Promise<ChatMessage[]> {
+    if (!supabase) return [];
+    
+    const { data, error } = await supabase
+        .from('chat_messages')
+        .select('role, content, created_at')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: true });
+        
+    if (error) {
+        console.error('Error fetching chat history:', error);
+        return [];
+    }
+    
+    return data.map(msg => ({
+        role: msg.role as 'user' | 'model',
+        text: msg.content,
+        timestamp: msg.created_at,
+    }));
+}
+
+export async function addChatMessage(message: { patientId: number; role: 'user' | 'model'; text: string; }) {
     if (!supabase) {
-        console.error("Supabase client not initialized. Cannot log medication intake.");
-        return;
+      console.warn("Supabase not configured. Chat message not saved.");
+      return;
     }
-
-    try {
-        console.log(`Medication intake logged for patient ${patientId}, schedule ${scheduleId}`);
-        // Implementation can be added when medication_logs table is created
-    } catch (err) {
-        console.error('Exception in logMedicationIntake:', err);
-        throw err;
+    
+    const { error } = await supabase
+        .from('chat_messages')
+        .insert({
+            patient_id: message.patientId,
+            role: message.role,
+            content: message.text,
+        });
+        
+    if (error) {
+        console.error('Error adding chat message:', error);
+        throw error;
     }
 }
 
-// Add new patient
-export async function addPatient(newPatient: NewPatient): Promise<PatientData | null> {
+// FIX: Add and export the missing 'addPatient' function.
+export async function addPatient(patient: NewPatient): Promise<PatientData | null> {
     if (!supabase) {
         console.error("Supabase client not initialized. Cannot add patient.");
+        // Mock a response for local dev if needed
+        const newId = Math.max(...mockPatients.map(p => p.id)) + 1;
+        const newPatient: PatientData = {
+            id: newId,
+            ...patient,
+            measurements: [],
+            smartphone: getDefaultSmartphoneData(),
+            medications: [],
+            medication_logs: [],
+            code: `MOCK-${newId}`
+        };
+        mockPatients.push(newPatient);
+        return newPatient;
+    }
+
+    // 1. Create a default smartphone_data entry
+    const { data: smartphoneData, error: smartphoneError } = await supabase
+        .from('smartphone_data')
+        .insert([{}])
+        .select()
+        .single();
+    
+    if (smartphoneError) {
+        console.error("Error creating smartphone data for new patient:", smartphoneError);
+        throw smartphoneError;
+    }
+
+    // 2. Generate a unique pairing code (e.g., ABCD-1234)
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const code = `${chars[Math.floor(Math.random()*26)]}${chars[Math.floor(Math.random()*26)]}${chars[Math.floor(Math.random()*26)]}${chars[Math.floor(Math.random()*26)]}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    // 3. Create the patient, linking the smartphone_data
+    const { data: newPatientData, error: patientError } = await supabase
+        .from('patients')
+        .insert([{
+            name: patient.name,
+            age: patient.age,
+            condition: patient.condition,
+            smartphone_data_id: smartphoneData.id,
+            code: code,
+        }])
+        .select()
+        .single();
+
+    if (patientError) {
+        console.error("Error creating new patient:", patientError);
+        // Attempt to clean up orphaned smartphone_data
+        await supabase.from('smartphone_data').delete().eq('id', smartphoneData.id);
+        throw patientError;
+    }
+    
+    // Return the new patient with default empty arrays for related data
+    return {
+        ...newPatientData,
+        measurements: [],
+        smartphone: getDefaultSmartphoneData(),
+        medications: [],
+        medication_logs: []
+    };
+}
+
+
+// --- Medication Management ---
+
+export async function addMedication(patientId: number, med: { name: string, dosage: string, times: string[] }) {
+    if (!supabase) throw new Error("Supabase client not initialized.");
+
+    // Insert medication
+    const { data: medData, error: medError } = await supabase
+        .from('medications')
+        .insert({ patient_id: patientId, name: med.name, dosage: med.dosage })
+        .select()
+        .single();
+    if (medError) throw medError;
+
+    // Insert schedules
+    const schedulesToInsert = med.times.map(t => ({
+        medication_id: medData.id,
+        time_of_day: t
+    }));
+    const { error: scheduleError } = await supabase
+        .from('medication_schedules')
+        .insert(schedulesToInsert);
+    if (scheduleError) throw scheduleError;
+}
+
+export async function logMedicationIntake(patientId: number, scheduleId: number) {
+     if (!supabase) throw new Error("Supabase client not initialized.");
+     const { error } = await supabase
+        .from('medication_logs')
+        .insert({ patient_id: patientId, schedule_id: scheduleId, taken_at: new Date().toISOString() });
+     if (error) throw error;
+}
+
+export async function deleteMedication(medicationId: number) {
+    if (!supabase) throw new Error("Supabase client not initialized.");
+    // Supabase is configured with cascading delete, so deleting a medication
+    // will also delete its schedules and logs.
+    const { error } = await supabase.from('medications').delete().eq('id', medicationId);
+    if (error) throw error;
+}
+
+// --- Emergency Contact ---
+export async function updatePatientEmergencyContact(patientId: number, name: string | null, phone: string | null) {
+    if (!supabase) throw new Error("Supabase client not initialized.");
+
+    const { data, error } = await supabase
+        .from('patients')
+        .update({ emergency_contact_name: name, emergency_contact_phone: phone })
+        .eq('id', patientId)
+        .select()
+        .single();
+    
+    if (error) {
+        console.error("Error updating emergency contact:", error);
+        throw error;
+    }
+    return data;
+}
+
+// --- Environmental Data Update ---
+export async function updatePatientEnvironmentData(smartphoneDataId: number): Promise<SmartphoneData | null> {
+    if (!supabase) {
+        console.warn("Supabase not configured. Cannot update environmental data.");
         return null;
     }
     
-    try {
-        const code = await generateCode();
+    // Using Paris, FR as a default location. In a real app, this would be dynamic.
+    const lat = 48.8566;
+    const lon = 2.3522;
 
-        const patientToInsert = {
-            name: newPatient.name,
-            age: newPatient.age,
-            condition: newPatient.condition,
-            city: newPatient.city,
-            country: newPatient.country,
-            code: code
-        };
-
-        const { data: patient, error: patientError } = await supabase
-            .from('patients')
-            .insert(patientToInsert)
-            .select()
-            .single();
-
-        if (patientError) {
-            console.error('Error creating patient:', patientError);
-            throw patientError;
-        }
-
-        const defaultSmartphoneData = getDefaultSmartphoneData();
-        const flatSmartphoneData = {
-            ...flattenSmartphoneData(defaultSmartphoneData),
-            patient_id: patient.id
-        };
-
-        const { error: smartphoneError } = await supabase
-            .from('smartphone_data')
-            .insert(flatSmartphoneData);
-
-        if (smartphoneError) {
-            console.error('Error creating smartphone data:', smartphoneError);
-            await supabase.from('patients').delete().eq('id', patient.id);
-            throw smartphoneError;
-        }
-
-        console.log(`Successfully created patient with code ${code}`);
-
-        return {
-            ...patient,
-            measurements: [],
-            smartphone: defaultSmartphoneData,
-            medications: [],
-            medication_logs: []
-        };
-
-    } catch (err) {
-        console.error('Exception in addPatient:', err);
-        throw err;
-    }
-}
-
-// Get chat history
-export async function getChatHistory(patient_id: number): Promise<ChatMessage[]> {
-    const now = new Date();
-    const mockHistory: ChatMessage[] = [
-        { role: 'model', text: 'Bonjour ! Comment vous sentez-vous aujourd\'hui ?', timestamp: new Date(now.getTime() - 5 * 60000) },
-        { role: 'user', text: 'Je suis un peu plus essoufflé que d\'habitude.', timestamp: new Date(now.getTime() - 4 * 60000) },
-        { role: 'model', text: 'Merci de me le faire savoir. Avez-vous pris votre traitement ce matin ?', timestamp: new Date(now.getTime() - 3 * 60000) },
-        { role: 'user', text: 'Oui, comme d\'habitude', timestamp: new Date(now.getTime() - 2 * 60000) },
-        { role: 'model', text: 'D\'accord. Essayez de vous reposer un peu. Si l\'essoufflement s\'aggrave, n\'hésitez pas à suivre votre plan d\'action ou à contacter votre médecin.', timestamp: new Date(now.getTime() - 1 * 60000) }
-    ];
-
-    if (supabase) {
-        try {
-            const { data: chatHistory, error } = await supabase
-                .from('chat_messages')
-                .select('role, content, created_at')
-                .eq('patient_id', patient_id)
-                .order('created_at', { ascending: true });
-                
-            if (!error && chatHistory) {
-                return chatHistory.map(msg => ({
-                    role: msg.role as 'user' | 'model',
-                    text: msg.content,
-                    timestamp: new Date(msg.created_at),
-                }));
-            }
-        } catch (err) {
-            console.warn(`Chat messages table not available. Using mock data for patient ${patient_id}`);
-        }
+    const envData = await getEnvironmentalData(lat, lon);
+    
+    if (!envData) {
+        console.log("No new environmental data fetched from OpenWeatherMap.");
+        return null;
     }
 
-    console.warn(`Using mock chat history for patient ID ${patient_id}`);
-    return mockHistory;
-}
-
-// Real-time listener
-export function listenToPatientChanges(callback: (patients: PatientData[]) => void): () => void {
-    if (!supabase) {
-        console.warn("Supabase not configured. Real-time updates disabled.");
-        return () => {};
+    const { data: updatedRecord, error: updateError } = await supabase
+        .from('smartphone_data')
+        .update({
+            temperature_c: envData.temperatureC,
+            humidity_percent: envData.humidityPercent,
+            air_quality_index: envData.airQualityIndex
+        })
+        .eq('id', smartphoneDataId)
+        .select()
+        .single();
+    
+    if (updateError) {
+        console.error("Error updating environmental data in Supabase:", updateError);
+        throw updateError;
     }
-
-    try {
-        const channel = supabase
-            .channel('realtime-all')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public' },
-                async (payload) => {
-                    console.log('Real-time change received:', payload.table);
-                    try {
-                        const updatedPatients = await fetchAndTransformAllPatients();
-                        callback(updatedPatients);
-                    } catch (err) {
-                        console.error('Error handling real-time update:', err);
-                    }
-                }
-            )
-            .subscribe();
-        
-        console.log("Real-time listener subscribed");
-        
-        return () => {
-            console.log("Real-time listener unsubscribed");
-            supabase.removeChannel(channel);
-        };
-    } catch (err) {
-        console.error("Failed to set up real-time listener:", err);
-        return () => {};
-    }
+    
+    console.log("Successfully updated environmental data:", updatedRecord);
+    return transformSmartphoneData(updatedRecord);
 }
