@@ -92,6 +92,27 @@ export interface SmartphoneData {
   reported: PatientReportedData;
 }
 
+// --- Speech Analysis Types ---
+export interface SpeechAnalysis {
+  timestamp: Date;
+  speechRate: number; // words per minute
+  pauseFrequency: number; // pauses per minute
+  articulationScore: number; // 0-100
+}
+
+// --- Smoking Cessation Types ---
+export interface SmokingLog {
+  timestamp: Date;
+  type: 'craving' | 'smoked';
+  trigger?: string; // e.g., 'Stress', 'Coffee', 'After meal'
+}
+
+export interface SmokingCessationData {
+  isSmoker: boolean;
+  consecutiveSmokeFreeDays: number;
+  logs: SmokingLog[];
+}
+
 
 export interface PatientData {
   id: number;
@@ -107,6 +128,8 @@ export interface PatientData {
   smartphone_data?: any; // Raw data from Supabase before transformation
   smartphone_data_id?: number;
   code?: string;
+  speechAnalysisHistory?: SpeechAnalysis[];
+  smokingCessation?: SmokingCessationData;
 }
 
 export type QuestionType = 'multiple_choice' | 'scale' | 'yes_no' | 'open_ended';

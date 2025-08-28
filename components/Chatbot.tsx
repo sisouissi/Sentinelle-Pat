@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import type { ChatMessage, QuestionType } from '../types';
 import { Send, Bot, Mic, Volume2, VolumeX } from './icons';
@@ -88,6 +87,7 @@ export function Chatbot({ history, onSendMessage, isAiTyping, isActive }: Chatbo
   const [isTtsEnabled, setIsTtsEnabled] = useState(true);
   const [recordingStatus, setRecordingStatus] = useState<'idle' | 'recording' | 'processing'>('idle');
   const [isSpeechRecognitionSupported, setIsSpeechRecognitionSupported] = useState(false);
+  const [micError, setMicError] = useState<string | null>(null);
   
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -139,10 +139,17 @@ export function Chatbot({ history, onSendMessage, isAiTyping, isActive }: Chatbo
       recognition.continuous = false;
       recognition.interimResults = false;
 
-      recognition.onstart = () => setRecordingStatus('recording');
+      recognition.onstart = () => {
+        setMicError(null);
+        setRecordingStatus('recording');
+      };
       recognition.onend = () => setRecordingStatus('idle');
-      recognition.onerror = (event) => {
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error('Speech recognition error:', event.error);
+        if (event.error === 'no-speech') {
+            setMicError(t('chatbot.errors.noSpeech'));
+            setTimeout(() => setMicError(null), 3000);
+        }
         setRecordingStatus('idle');
       };
       recognition.onresult = (event) => {
@@ -153,7 +160,7 @@ export function Chatbot({ history, onSendMessage, isAiTyping, isActive }: Chatbo
       
       recognitionRef.current = recognition;
     }
-  }, [onSendMessage, language]);
+  }, [onSendMessage, language, t]);
 
 
   useEffect(() => {
@@ -193,14 +200,15 @@ export function Chatbot({ history, onSendMessage, isAiTyping, isActive }: Chatbo
   };
 
   const getPlaceholderText = () => {
+    if (micError) return micError;
     if (recordingStatus === 'recording') return t('chatbot.listening');
     if (recordingStatus === 'processing') return t('chatbot.processing');
     return t('chatbot.askQuestion');
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <header className="p-4 border-b border-slate-200 flex items-center justify-between">
+    <div className="flex flex-col h-full rounded-2xl overflow-hidden bg-white/40">
+      <header className="p-4 bg-slate-100/80 backdrop-blur-sm flex items-center justify-between">
          <div className="flex items-center">
             <div className="bg-blue-100 p-2 rounded-full mr-3">
                 <Bot className="w-6 h-6 text-blue-600" />
@@ -252,7 +260,7 @@ export function Chatbot({ history, onSendMessage, isAiTyping, isActive }: Chatbo
             onSelect={handleSendMessage}
         />
       ) : (
-          <div className="p-4 border-t border-slate-200">
+          <div className="p-4 bg-slate-100/80 backdrop-blur-sm">
             <form onSubmit={handleSubmit} className="flex items-center gap-2">
               <input
                 ref={inputRef}
@@ -268,8 +276,8 @@ export function Chatbot({ history, onSendMessage, isAiTyping, isActive }: Chatbo
                     type="button"
                     onClick={handleMicClick}
                     disabled={isAiTyping}
-                    className={`p-3 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 relative ${
-                        recordingStatus === 'recording' ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                    className={`p-3 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 relative transform active:scale-95 ${
+                        recordingStatus === 'recording' ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300 hover:scale-110'
                     } ${isAiTyping ? 'opacity-50 cursor-not-allowed' : ''}`}
                     title={t('chatbot.useVoiceInput')}
                   >
@@ -284,7 +292,7 @@ export function Chatbot({ history, onSendMessage, isAiTyping, isActive }: Chatbo
               <button
                 type="submit"
                 disabled={isAiTyping || !input.trim()}
-                className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full hover:shadow-lg hover:from-blue-600 disabled:bg-slate-400 disabled:from-slate-400 disabled:cursor-not-allowed transition-all transform hover:scale-110 active:scale-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
                 <Send className="w-5 h-5" />
               </button>

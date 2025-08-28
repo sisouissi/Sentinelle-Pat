@@ -100,14 +100,43 @@ async function handleGreeting(ai: GoogleGenAI, lang: Language) {
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: [{role: 'user', parts: [{text: prompt}]}],
-        config: { systemInstruction: getSystemInstruction(undefined, lang) }
+        config: { 
+            systemInstruction: getSystemInstruction(undefined, lang),
+            thinkingConfig: { thinkingBudget: 0 }
+        }
     });
 
     return new Response(JSON.stringify({ text: response.text }), { headers: { 'Content-Type': 'application/json' } });
 }
 
 async function handleStream(ai: GoogleGenAI, history: ChatMessage[], patientData: PatientData, lang: Language) {
-    const contents = history.map((msg: ChatMessage) => ({
+    let conversationHistory = [...history];
+
+    // The Gemini API requires a conversation history to start with a 'user' message
+    // and alternate between 'user' and 'model'. Our app's state starts with a 'model'
+    // greeting, which makes the history invalid for the API.
+    const firstUserIndex = conversationHistory.findIndex(m => m.role === 'user');
+
+    if (firstUserIndex !== -1) {
+        // If a user message is found, slice the history to start from that point.
+        conversationHistory = conversationHistory.slice(firstUserIndex);
+    } else {
+        // If there are no user messages, the conversation can't be processed.
+        const errorMsg = lang === 'en' 
+            ? "I can't respond without a question from you." 
+            : lang === 'ar'
+            ? "لا يمكنني الرد بدون سؤال منك."
+            : "Je ne peux pas répondre sans une question de votre part.";
+        const stream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(new TextEncoder().encode(errorMsg));
+                controller.close();
+            }
+        });
+        return new Response(stream);
+    }
+
+    const contents = conversationHistory.map((msg: ChatMessage) => ({
       role: msg.role,
       parts: [{ text: msg.text }],
     }));
@@ -117,6 +146,7 @@ async function handleStream(ai: GoogleGenAI, history: ChatMessage[], patientData
       contents: contents,
       config: {
         systemInstruction: getSystemInstruction(patientData, lang),
+        thinkingConfig: { thinkingBudget: 0 }
       },
     });
 
@@ -155,7 +185,8 @@ async function handleProactiveQuestion(ai: GoogleGenAI, patientData: PatientData
                     type: { type: Type.STRING },
                     options: { type: Type.ARRAY, items: { type: Type.STRING } }
                 }
-            }
+            },
+            thinkingConfig: { thinkingBudget: 0 }
         }
     });
 
@@ -168,7 +199,10 @@ async function handleAnalyzeResponse(ai: GoogleGenAI, originalQuestion: string, 
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: { systemInstruction: getSystemInstruction(patientData, lang) }
+        config: { 
+            systemInstruction: getSystemInstruction(patientData, lang),
+            thinkingConfig: { thinkingBudget: 0 }
+        }
     });
 
     return new Response(JSON.stringify({ text: response.text }), { headers: { 'Content-Type': 'application/json' } });

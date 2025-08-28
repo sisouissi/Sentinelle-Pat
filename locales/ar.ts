@@ -1,4 +1,3 @@
-
 export const translations = {
     app: {
         loading: "جارٍ تحميل التطبيق...",
@@ -16,6 +15,8 @@ export const translations = {
         trends: "الاتجاهات",
         smartphone: "الهاتف الذكي",
         mobility: "الحركة",
+        elocution: "النطق",
+        smokingCessation: "الإقلاع عن التدخين",
         treatment: "العلاج",
         assistant: "المساعد",
         aiFilter: "مرشح الذكاء الاصطناعي",
@@ -108,6 +109,47 @@ export const translations = {
             vehicle: "في مركبة"
         }
     },
+    speech: {
+        title: "تحليل النطق",
+        description: "يكتشف العلامات المبكرة للضائقة التنفسية عن طريق تحليل صوتك.",
+        startAnalysis: "بدء تحليل جديد",
+        analyzing: "جارٍ تحليل صوتك...",
+        latestAnalysis: "التحليل الأخير",
+        speechRate: "سرعة الكلام",
+        wpm: "كلمة/دقيقة",
+        pauseFrequency: "تردد الوقفات",
+        ppm: "وقفة/دقيقة",
+        articulationScore: "درجة النطق",
+        trendTitle: "اتجاه 7 أيام",
+        speechRateKey: "سرعة الكلام",
+        pauseFrequencyKey: "تردد الوقفات"
+    },
+    smoking: {
+        title: "دعم الإقلاع عن التدخين",
+        nonSmokerTitle: "حالة غير مدخن",
+        nonSmokerDescription: "ممتاز! الاستمرار في عدم التدخين هو أحد أفضل الأشياء التي يمكنك القيام بها لصحتك.",
+        dailyStats: "إحصائيات اليوم",
+        smokedToday: "السجائر المدخنة",
+        cravingsToday: "الرغبات الشديدة",
+        smokeFreeDays: "أيام بلا تدخين",
+        logCraving: "شعرت برغبة",
+        logSmoked: "لقد دخنت",
+        weeklyChartTitle: "سجل 7 أيام",
+        cigarettesLabel: "سجائر",
+        activityLogTitle: "سجل النشاط",
+        smokedEvent: "دخن سيجارة",
+        cravingEvent: "شعر برغبة شديدة",
+        triggerLabel: "المحفز:",
+        noTrigger: "غير محدد",
+        logModal: {
+            titleCraving: "تسجيل رغبة شديدة",
+            titleSmoked: "تسجيل سيجارة",
+            question: "ما هو المحفز؟",
+            placeholder: "مثال: بعد الأكل، توتر، قهوة...",
+            saveButton: "حفظ",
+            skipButton: "تخطي"
+        }
+    },
     deviceManager: {
         title: "إدارة الأجهزة",
         total: "المجموع",
@@ -144,7 +186,10 @@ export const translations = {
         askQuestion: "اسألني سؤالاً...",
         useVoiceInput: "استخدام الإدخال الصوتي",
         deviceConnected: "تم الاتصال بنجاح. يتم الآن إرسال البيانات الحية إلى الخادم لتحليلها.",
-        deviceDisconnected: "لقد قمت بقطع الاتصال. توقفت المراقبة في الوقت الفعلي."
+        deviceDisconnected: "لقد قمت بقطع الاتصال. توقفت المراقبة في الوقت الفعلي.",
+        errors: {
+            noSpeech: "لم أسمع شيئًا. يرجى المحاولة مرة أخرى."
+        }
     },
     pairing: {
         title: "مرحباً بك في الرقيب",
@@ -350,6 +395,6 @@ export const translations = {
         noMedication: "لا توجد أدوية مهيأة."
     },
     footer: {
-        copyright: "© 2025 الرقيب: تطبيق تم تطويره بواسطة الدكتور زهير السويسي. جميع الحقوق محفوظة"
+        copyright: "© 2025 الرقيب: تطبيق محاكاة (واجهة المريض) تم تطويره بواسطة الدكتور زهير السويسي. جميع الحقوق محفوظة."
     }
 };

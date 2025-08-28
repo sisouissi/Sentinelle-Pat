@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
-import type { PatientData, ChatMessage, RiskLevel, Measurement, DeviceReading } from './types';
-import { calculateRiskScore } from './services/mockDataService';
+import type { PatientData, ChatMessage, RiskLevel, Measurement, DeviceReading, SpeechAnalysis, SmokingLog } from './types';
+import { calculateRiskScore } from './services/analyticsService';
 import * as supabaseService from './services/supabaseService';
 import { getInitialGreeting, getAIResponseStream, getProactiveQuestion, analyzeUserResponse, isAiAvailable } from './services/geminiService';
 import { DeviceManager as DeviceManagerService } from './services/deviceService';
@@ -13,12 +12,16 @@ import { DeviceManagerModal } from './components/DeviceManagerModal';
 import { SmartphoneData } from './components/SmartphoneData';
 import { Chatbot } from './components/Chatbot';
 import { MobilityTab } from './components/MobilityTab';
+import { SpeechAnalysisTab } from './components/SpeechAnalysisTab';
+import { SmokingCessationTab } from './components/SmokingCessationTab';
 import { TreatmentTab } from './components/TreatmentTab';
 import { PairingScreen } from './components/PairingScreen';
 import { ProfileModal } from './components/ProfileModal';
 import { EmergencyModal } from './components/EmergencyModal';
-import { Wind, Smartphone, Stethoscope, Pill, Footprints, LogOut, Bot, BrainCircuit, Globe, User, Sos, AlertTriangle } from './components/icons';
+import { Footer } from './components/Footer';
+import { Wind, Smartphone, Stethoscope, Pill, Footprints, LogOut, Bot, BrainCircuit, Globe, User, Sos, AlertTriangle, Mic, Flame } from './components/icons';
 import { useTranslation } from './contexts/LanguageContext';
+import { allPatients } from './services/mockDataService';
 
 
 const deviceManager = DeviceManagerService.getInstance();
@@ -46,8 +49,7 @@ export default function App(): React.ReactNode {
     const aiQuestion = await getProactiveQuestion(currentPatientData, newRiskLevel, language);
     if (aiQuestion) {
         setChatHistory(prev => [...prev, aiQuestion]);
-        supabaseService.addChatMessage({ patientId: currentPatientData.id, ...aiQuestion })
-            .catch(err => console.error("Failed to save proactive question:", err));
+        // No need to save to DB in demo mode
         if (activeTab !== 'chatbot') {
             setHasUnreadMessages(true);
         }
@@ -56,15 +58,27 @@ export default function App(): React.ReactNode {
   }, [activeTab, language]);
 
   const updateRisk = useCallback((data: PatientData) => {
-    const { score, level } = calculateRiskScore(data);
-    setRiskScore(score);
+    const { score, level: newLevel } = calculateRiskScore(data);
     
-    if (level !== riskLevel) {
-        setRiskLevel(level);
-        if (level === 'High' || level === 'Medium') {
-            triggerProactiveAI(data, level);
-        }
+    // An escalation occurs when the new risk level is higher than the current one.
+    const isEscalation =
+        (riskLevel === 'Low' && (newLevel === 'Medium' || newLevel === 'High')) ||
+        (riskLevel === 'Medium' && newLevel === 'High');
+
+    if (isEscalation) {
+        // If risk escalates, trigger the AI and update the risk level state.
+        // This sets a new, higher baseline, preventing re-triggers if the data flickers
+        // back down and then up to the same level, which solves the rate-limiting issue.
+        triggerProactiveAI(data, newLevel);
+        setRiskLevel(newLevel);
+    } else if (newLevel !== riskLevel) {
+        // If the level changes but it's not an escalation (i.e., it's a de-escalation),
+        // just update the displayed risk level without triggering the AI. This keeps the UI accurate.
+        setRiskLevel(newLevel);
     }
+    
+    // Always update the score for display, regardless of level changes.
+    setRiskScore(score);
   }, [riskLevel, triggerProactiveAI]);
 
   const refreshPatientData = useCallback(async (id: number) => {
@@ -79,17 +93,15 @@ export default function App(): React.ReactNode {
 
     // Update environmental data from API
     try {
-        if (currentPatientData.smartphone_data_id) {
-            console.log("Attempting to update environmental data from OpenWeatherMap...");
-            const updatedSmartphoneData = await supabaseService.updatePatientEnvironmentData(currentPatientData.smartphone_data_id);
-            if (updatedSmartphoneData) {
-                // Merge the new data into our patient object
-                currentPatientData = {
-                    ...currentPatientData,
-                    smartphone: updatedSmartphoneData
-                };
-                console.log("Environmental data successfully merged into patient state.");
-            }
+        console.log("Attempting to update environmental data from OpenWeatherMap...");
+        const updatedSmartphoneData = await supabaseService.updatePatientEnvironmentData(currentPatientData.id);
+        if (updatedSmartphoneData) {
+            // Merge the new data into our patient object
+            currentPatientData = {
+                ...currentPatientData,
+                smartphone: updatedSmartphoneData
+            };
+            console.log("Environmental data successfully merged into patient state.");
         }
     } catch (error) {
         console.error("Failed to update environmental data. The app will proceed with existing data.", error);
@@ -106,7 +118,6 @@ export default function App(): React.ReactNode {
         const greetingText = await getInitialGreeting(language);
         const initialMessage: ChatMessage = { role: 'model', text: greetingText };
         setChatHistory([initialMessage]);
-        await supabaseService.addChatMessage({ patientId: currentPatientData.id, ...initialMessage });
     }
   }, [language, t]);
 
@@ -140,25 +151,6 @@ export default function App(): React.ReactNode {
     loadInitialData();
   }, [loadPatientAndHistory, t]);
 
-  // Effect to listen for real-time changes from Supabase
-  useEffect(() => {
-    if (!patientData) return;
-
-    const unsubscribe = supabaseService.listenToPatientChanges((updatedPatients) => {
-        console.log("Real-time update received!");
-        
-        const updatedCurrentPatient = updatedPatients.find(p => p.id === patientData.id);
-        if (updatedCurrentPatient) {
-            setPatientData(updatedCurrentPatient);
-        }
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [patientData?.id]);
-
-
   // Effect to update risk whenever patient data changes
   useEffect(() => {
     if (patientData) {
@@ -170,13 +162,31 @@ export default function App(): React.ReactNode {
   useEffect(() => {
     if (!isDeviceConnected || !patientData) return;
 
-    const handleNewReading = async (reading: DeviceReading) => {
+    const handleNewReading = (reading: DeviceReading) => {
         if (reading.data.spo2 != null && reading.data.heartRate != null) {
-           await supabaseService.addMeasurement(
-              patientData.id,
-              Math.round(reading.data.spo2),
-              Math.round(reading.data.heartRate)
-           );
+           setPatientData(prevData => {
+                if (!prevData) return null;
+                const newMeasurement = {
+                    timestamp: new Date(reading.timestamp),
+                    spo2: Math.round(reading.data.spo2!),
+                    heartRate: Math.round(reading.data.heartRate!),
+                };
+                
+                const newMeasurements = [...prevData.measurements, newMeasurement];
+                if (newMeasurements.length > 60) {
+                    newMeasurements.shift(); // Remove the oldest measurement
+                }
+
+                const updatedPatientData = { ...prevData, measurements: newMeasurements };
+
+                // Update the mock data source as well, so changes persist during the session
+                const mockPatientIndex = allPatients.findIndex(p => p.id === updatedPatientData.id);
+                if (mockPatientIndex !== -1) {
+                    allPatients[mockPatientIndex].measurements = newMeasurements;
+                }
+
+                return updatedPatientData;
+            });
         }
     };
     
@@ -195,10 +205,6 @@ export default function App(): React.ReactNode {
         text: t('chatbot.deviceConnected')
     };
     setChatHistory(prev => [...prev, message]);
-    if (patientData) {
-        supabaseService.addChatMessage({ patientId: patientData.id, ...message })
-            .catch(err => console.error("Failed to save connect message:", err));
-    }
     if (activeTab !== 'chatbot') {
         setHasUnreadMessages(true);
     }
@@ -216,10 +222,6 @@ export default function App(): React.ReactNode {
         text: t('chatbot.deviceDisconnected')
     };
     setChatHistory(prev => [...prev, message]);
-    if (patientData) {
-        supabaseService.addChatMessage({ patientId: patientData.id, ...message })
-            .catch(err => console.error("Failed to save disconnect message:", err));
-    }
     if (activeTab !== 'chatbot') {
         setHasUnreadMessages(true);
     }
@@ -231,8 +233,6 @@ export default function App(): React.ReactNode {
     
     const updatedHistoryForApi = [...chatHistory, userMessage];
     setChatHistory(updatedHistoryForApi);
-    supabaseService.addChatMessage({ patientId: patientData.id, ...userMessage})
-        .catch(err => console.error("Failed to save user message:", err));
 
     setIsAiTyping(true);
 
@@ -240,8 +240,6 @@ export default function App(): React.ReactNode {
       const aiResponseText = await analyzeUserResponse(context.originalQuestion, message, patientData, language);
       const aiResponseMessage: ChatMessage = { role: 'model', text: aiResponseText };
       setChatHistory(prev => [...prev, aiResponseMessage]);
-      supabaseService.addChatMessage({ patientId: patientData.id, ...aiResponseMessage })
-        .catch(err => console.error("Failed to save AI context response:", err));
       if (activeTab !== 'chatbot') {
         setHasUnreadMessages(true);
       }
@@ -269,12 +267,10 @@ export default function App(): React.ReactNode {
             return newHistory;
         });
       }
-      await supabaseService.addChatMessage({ patientId: patientData.id, role: 'model', text: fullText });
     } catch (error) {
       console.error("Error fetching AI response:", error);
       const errorMessageText = t('errors.apiConnection');
       setChatHistory(prev => [...prev.slice(0,-1), { role: 'model', text: errorMessageText }]);
-      await supabaseService.addChatMessage({ patientId: patientData.id, role: 'model', text: errorMessageText });
     } finally {
       setIsAiTyping(false);
     }
@@ -290,6 +286,62 @@ export default function App(): React.ReactNode {
     setPatientData(null);
     setChatHistory([]);
   };
+
+    const handleNewSpeechAnalysis = useCallback(() => {
+        setTimeout(() => {
+            setPatientData(prevData => {
+                if (!prevData || !prevData.speechAnalysisHistory) return prevData;
+
+                const newAnalysis: SpeechAnalysis = {
+                    timestamp: new Date(),
+                    speechRate: 140 + (Math.random() - 0.6) * 25,
+                    pauseFrequency: 4 + (Math.random() - 0.4) * 2.5,
+                    articulationScore: 90 + (Math.random() - 0.6) * 15,
+                };
+                const updatedHistory = [...prevData.speechAnalysisHistory, newAnalysis];
+                if (updatedHistory.length > 7) updatedHistory.shift();
+                
+                const updatedPatientData = { ...prevData, speechAnalysisHistory: updatedHistory };
+                
+                const mockPatientIndex = allPatients.findIndex(p => p.id === updatedPatientData.id);
+                if (mockPatientIndex !== -1) {
+                    allPatients[mockPatientIndex].speechAnalysisHistory = updatedHistory;
+                }
+                
+                return updatedPatientData;
+            });
+        }, 3000);
+    }, []);
+
+    const handleLogSmokingEvent = useCallback((log: Omit<SmokingLog, 'timestamp'>) => {
+        setPatientData(prevData => {
+            if (!prevData || !prevData.smokingCessation) return prevData;
+
+            const newLog = { ...log, timestamp: new Date() };
+            const updatedLogs = [...prevData.smokingCessation.logs, newLog];
+            
+            let newConsecutiveDays = prevData.smokingCessation.consecutiveSmokeFreeDays;
+            if (newLog.type === 'smoked') {
+                newConsecutiveDays = 0;
+            }
+
+            const updatedSmokingData = {
+                ...prevData.smokingCessation,
+                logs: updatedLogs,
+                consecutiveSmokeFreeDays: newConsecutiveDays,
+            };
+
+            const updatedPatientData = { ...prevData, smokingCessation: updatedSmokingData };
+            
+            const mockPatientIndex = allPatients.findIndex(p => p.id === updatedPatientData.id);
+            if (mockPatientIndex !== -1) {
+                allPatients[mockPatientIndex].smokingCessation = updatedSmokingData;
+            }
+
+            return updatedPatientData;
+        });
+    }, []);
+
 
   if (isLoading) {
     return (
@@ -308,242 +360,185 @@ export default function App(): React.ReactNode {
         <div className="flex flex-col items-center justify-center min-h-screen text-red-500 bg-red-50 p-4">
             <h2 className="text-xl font-bold mb-2">{t('errors.connectionTitle')}</h2>
             <p className="text-center">{error}</p>
-            <p className="text-center mt-4 text-sm text-slate-600">
-                {t('errors.supabaseConfig')}
-            </p>
         </div>
     );
   }
   
   const renderPatientTabContent = () => {
     if (!patientData) return null;
+
     switch (activeTab) {
       case 'vitals':
-        return <TrendsChart measurements={patientData.measurements} />;
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 animate-fade-in">
+            <VitalsCard
+              title={t('vitals.spo2')}
+              value={`${patientData.measurements.length > 0 ? patientData.measurements[patientData.measurements.length - 1].spo2 : '--'}%`}
+              trend="stable"
+              icon={<Wind className="w-6 h-6 text-blue-500" />}
+              isConnected={isDeviceConnected}
+              onConnectClick={() => setDeviceManagerOpen(true)}
+              style={{ animationDelay: '100ms' }}
+            />
+            <VitalsCard
+              title={t('vitals.heartRate')}
+              value={`${patientData.measurements.length > 0 ? patientData.measurements[patientData.measurements.length - 1].heartRate : '--'} bpm`}
+              trend="stable"
+              icon={<Stethoscope className="w-6 h-6 text-red-500" />}
+              isConnected={isDeviceConnected}
+              onConnectClick={() => setDeviceManagerOpen(true)}
+               style={{ animationDelay: '200ms' }}
+            />
+            <RiskScore score={riskScore} level={riskLevel} style={{ animationDelay: '300ms' }} />
+            <div className="md:col-span-3 bg-white/70 backdrop-blur-md p-4 rounded-2xl shadow-lg h-72 animate-fade-in" style={{ animationDelay: '400ms' }}>
+                <TrendsChart measurements={patientData.measurements} />
+            </div>
+          </div>
+        );
       case 'smartphone':
         return <SmartphoneData data={patientData.smartphone} isAiFilterActive={isAiFilterActive} />;
       case 'mobility':
-        return <MobilityTab />;
+          return <MobilityTab />;
+      case 'elocution':
+          return <SpeechAnalysisTab speechAnalysisHistory={patientData.speechAnalysisHistory || []} onNewAnalysis={handleNewSpeechAnalysis} />;
+      case 'smokingCessation':
+          return <SmokingCessationTab smokingData={patientData.smokingCessation} onLogEvent={handleLogSmokingEvent} />;
       case 'treatment':
-        return <TreatmentTab patientData={patientData} onDataChange={() => refreshPatientData(patientData.id)} />;
+          return <TreatmentTab patientData={patientData} onDataChange={() => refreshPatientData(patientData.id)} />;
       case 'chatbot':
-        return <Chatbot 
-                history={chatHistory} 
-                onSendMessage={handleSendMessage}
-                isAiTyping={isAiTyping}
-                isActive={activeTab === 'chatbot'}
-              />;
+        return <Chatbot history={chatHistory} onSendMessage={handleSendMessage} isAiTyping={isAiTyping} isActive={activeTab === 'chatbot'} />;
       default:
         return null;
     }
   };
-
-  const TabButton = ({ id, label, icon, hasNotification, disabled }: { id: string; label: string; icon: React.ReactNode; hasNotification?: boolean; disabled?: boolean; }) => (
-    <button
-      onClick={() => {
-        if (disabled) return;
-        setActiveTab(id);
-        if (id === 'chatbot') {
-            setHasUnreadMessages(false);
-        }
-      }}
-      disabled={disabled}
-      className={`relative flex items-center justify-center w-full px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
-        activeTab === id && !disabled
-          ? 'bg-blue-600 text-white shadow-md'
-          : 'bg-white/50 text-slate-700 hover:bg-white'
-      } ${disabled ? 'opacity-50 cursor-not-allowed bg-slate-200/50' : ''}`}
-      title={disabled ? t('errors.aiUnavailableTooltip') : undefined}
-    >
-      {icon}
-      <span className="ml-2">{label}</span>
-      {hasNotification && !disabled && (
-        <span className="absolute top-2 right-2 flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-        </span>
-      )}
-    </button>
-  );
-
-  const renderPatientDashboard = () => {
-      if (!patientData) return <PairingScreen onPairSuccess={handlePairSuccess} />;
-
-      const latestMeasurement = patientData.measurements.length > 0 ? patientData.measurements[patientData.measurements.length - 1] : null;
-      const previousMeasurement = patientData.measurements.length > 1 ? patientData.measurements[patientData.measurements.length - 2] : null;
-
-      const spo2Value = latestMeasurement ? `${latestMeasurement.spo2}%` : '--';
-      const heartRateValue = latestMeasurement ? `${latestMeasurement.heartRate} bpm` : '--';
-
-      let spo2Trend: 'up' | 'down' | 'stable' = 'stable';
-      if (latestMeasurement && previousMeasurement) {
-        if (latestMeasurement.spo2 > previousMeasurement.spo2) spo2Trend = 'up';
-        else if (latestMeasurement.spo2 < previousMeasurement.spo2) spo2Trend = 'down';
-      }
-
-      let heartRateTrend: 'up' | 'down' | 'stable' = 'stable';
-      if (latestMeasurement && previousMeasurement) {
-        if (latestMeasurement.heartRate < previousMeasurement.heartRate) heartRateTrend = 'up';
-        else if (latestMeasurement.heartRate > previousMeasurement.heartRate) heartRateTrend = 'down';
-      }
-
-      return (
-          <div className="flex flex-col gap-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <RiskScore score={riskScore} level={riskLevel} />
-                <VitalsCard
-                  title={t('vitals.spo2')}
-                  value={spo2Value}
-                  trend={spo2Trend}
-                  icon={<Stethoscope className="w-8 h-8 text-blue-500" />}
-                  isConnected={isDeviceConnected}
-                  onConnectClick={() => setDeviceManagerOpen(true)}
-                />
-                <VitalsCard
-                  title={t('vitals.heartRate')}
-                  value={heartRateValue}
-                  trend={heartRateTrend}
-                  icon={<Wind className="w-8 h-8 text-red-500" />}
-                  isConnected={isDeviceConnected}
-                  onConnectClick={() => setDeviceManagerOpen(true)}
-                />
-              </div>
-
-              <div className="bg-white/50 backdrop-blur-sm p-4 rounded-2xl shadow-sm">
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 p-1 bg-slate-200/50 rounded-xl mb-4">
-                  <TabButton id="vitals" label={t('tabs.trends')} icon={<Stethoscope className="w-5 h-5"/>} />
-                  <TabButton id="treatment" label={t('tabs.treatment')} icon={<Pill className="w-5 h-5"/>} />
-                  <TabButton id="smartphone" label={t('tabs.smartphone')} icon={<Smartphone className="w-5 h-5"/>} />
-                  <TabButton id="mobility" label={t('tabs.mobility')} icon={<Footprints className="w-5 h-5"/>} />
-                  <TabButton id="chatbot" label={t('tabs.assistant')} icon={<Bot className="w-5 h-5"/>} hasNotification={hasUnreadMessages} disabled={!isAiAvailable} />
-                  <button
-                    onClick={() => setIsAiFilterActive(!isAiFilterActive)}
-                    className={`flex items-center justify-center w-full px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
-                        isAiFilterActive
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-white/50 text-slate-700 hover:bg-white'
-                    }`}
-                    title={t('tabs.aiFilterTooltip')}
-                  >
-                    <BrainCircuit className="w-5 h-5" />
-                    <span className="ml-2 hidden lg:inline">{t('tabs.aiFilter')}</span>
-                  </button>
-                </div>
-                <div className={activeTab === 'chatbot' ? "h-[40rem]" : "h-72"}>
-                    {renderPatientTabContent()}
-                </div>
-              </div>
-          </div>
-      )
-  }
-
+  
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 font-sans flex flex-col">
-      <main className="container mx-auto p-4 lg:p-6 flex-grow">
-         {!isAiAvailable && (
-            <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded-lg mb-6 shadow-sm flex items-start gap-3" role="alert">
-                <AlertTriangle className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" />
-                <div>
-                    <p className="font-bold">{t('errors.aiWarningTitle')}</p>
-                    <p className="text-sm">{t('errors.aiWarningMessage')}</p>
-                </div>
-            </div>
-        )}
-        <div className="flex flex-col gap-6">
-          <header className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="bg-blue-600 p-3 rounded-full text-white">
-                  <Wind className="w-8 h-8"/>
-                </div>
-                <div>
-                  <h1 className="text-2xl lg:text-3xl font-bold text-slate-800">
-                    {t('header.title')}
-                  </h1>
-                  <p className="text-slate-500">
-                    {patientData ? t('header.welcomeBack', { name: patientData.name }) : t('header.promptLogin')}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                 <div className="relative">
-                    <Globe className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-                    <select
-                        value={language}
-                        onChange={(e) => setLanguage(e.target.value as 'fr' | 'en' | 'ar')}
-                        className="pl-10 pr-4 py-2 text-sm appearance-none bg-slate-200/60 border-none rounded-lg focus:ring-2 focus:ring-blue-500"
-                        aria-label={t('header.languageSelectorLabel')}
-                    >
-                        <option value="fr">Français</option>
-                        <option value="en">English</option>
-                        <option value="ar">العربية</option>
-                    </select>
-                 </div>
-                 {patientData && (
-                    <>
-                     <button 
-                        onClick={() => setEmergencyModalOpen(true)}
-                        className="flex items-center justify-center w-10 h-10 text-sm font-semibold rounded-lg text-white bg-red-600 hover:bg-red-700"
-                        title={t('header.sos')}
-                     >
-                        <Sos className="w-5 h-5" />
-                     </button>
-                     <button 
-                        onClick={() => setProfileModalOpen(true)}
-                        className="flex items-center justify-center w-10 h-10 text-sm font-semibold rounded-lg text-slate-600 hover:bg-slate-200/80"
-                        title={t('header.profile')}
-                     >
-                        <User className="w-5 h-5" />
-                     </button>
-                     <button 
-                        onClick={handleLogout}
-                        className="flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg text-slate-600 hover:bg-slate-200/80"
-                        title={t('header.logout')}
-                     >
-                        <LogOut className="w-5 h-5" />
-                        <span className="hidden sm:inline">{t('header.logout')}</span>
-                     </button>
-                    </>
-                 )}
-              </div>
-            </div>
-          </header>
-          
-          {renderPatientDashboard()}
+     <div className="flex flex-col min-h-screen">
+        <div className={`flex-grow ${!patientData ? 'flex items-center justify-center p-4' : ''}`}>
+          {patientData ? (
+            <div className="max-w-7xl mx-auto p-2 sm:p-4 lg:p-6 text-slate-800 dark:text-slate-200 w-full">
+                <ProfileModal isOpen={isProfileModalOpen} onClose={() => setProfileModalOpen(false)} patientData={patientData} onUpdate={() => refreshPatientData(patientData.id)} />
+                <EmergencyModal 
+                    isOpen={isEmergencyModalOpen} 
+                    onClose={() => setEmergencyModalOpen(false)}
+                    patientName={patientData.name}
+                    contactName={patientData.emergency_contact_name}
+                    contactPhone={patientData.emergency_contact_phone}
+                    onGoToProfile={() => {
+                        setEmergencyModalOpen(false);
+                        setProfileModalOpen(true);
+                    }}
+                />
+                <DeviceManagerModal 
+                    isOpen={isDeviceManagerOpen} 
+                    onClose={() => setDeviceManagerOpen(false)}
+                    onConnect={handleConnectDevice}
+                    onDisconnect={handleDisconnectDevice}
+                />
+                <header className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
+                    <div className="flex items-center">
+                        <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-3 rounded-full mr-4 shadow-lg">
+                            <Wind className="w-6 h-6 text-white"/>
+                        </div>
+                        <div>
+                            <h1 className="text-xl font-bold text-slate-800">{t('header.title')}</h1>
+                            <p className="text-sm text-slate-500">{t('header.welcomeBack', { name: patientData.name })}</p>
+                        </div>
+                    </div>
 
+                    <div className="flex items-center gap-2">
+                         <button onClick={() => setEmergencyModalOpen(true)} className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-red-600 bg-red-100 rounded-lg hover:bg-red-200 transition-all duration-200 hover:scale-105 active:scale-95">
+                            <Sos className="w-5 h-5" />
+                            <span className="hidden sm:inline">{t('header.sos')}</span>
+                        </button>
+                         <button onClick={() => setProfileModalOpen(true)} className="p-2.5 rounded-lg hover:bg-slate-200 transition-colors">
+                            <User className="w-5 h-5 text-slate-600" />
+                        </button>
+                        <div className="relative">
+                            <select 
+                                value={language} 
+                                onChange={(e) => setLanguage(e.target.value as 'fr' | 'en' | 'ar')}
+                                className="appearance-none bg-transparent py-2.5 pl-9 pr-3 text-slate-600 hover:bg-slate-200 rounded-lg text-sm font-semibold transition-colors"
+                                aria-label={t('header.languageSelectorLabel')}
+                            >
+                                <option value="fr">FR</option>
+                                <option value="en">EN</option>
+                                <option value="ar">AR</option>
+                            </select>
+                             <Globe className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                        <button onClick={handleLogout} className="p-2.5 rounded-lg hover:bg-slate-200 transition-colors">
+                            <LogOut className="w-5 h-5 text-slate-600" />
+                        </button>
+                    </div>
+                </header>
+
+                <main className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                    <div className="xl:col-span-1">
+                        <div className="bg-white/60 backdrop-blur-md p-2 rounded-2xl shadow-lg flex flex-col gap-1 sticky top-5">
+                            <button onClick={() => setActiveTab('vitals')} className={`flex items-center gap-3 p-3 rounded-lg w-full text-left transition-all duration-200 ease-in-out ${activeTab === 'vitals' ? 'bg-white shadow-md scale-105' : 'hover:bg-white/70 hover:scale-105'}`}>
+                                <Stethoscope className="w-5 h-5 text-blue-600"/>
+                                <span className="font-semibold text-slate-700">{t('tabs.trends')}</span>
+                            </button>
+                            <button onClick={() => setActiveTab('smartphone')} className={`flex items-center gap-3 p-3 rounded-lg w-full text-left transition-all duration-200 ease-in-out ${activeTab === 'smartphone' ? 'bg-white shadow-md scale-105' : 'hover:bg-white/70 hover:scale-105'}`}>
+                                <Smartphone className="w-5 h-5 text-green-600"/>
+                                <span className="font-semibold text-slate-700">{t('tabs.smartphone')}</span>
+                                <div className="ml-auto flex items-center gap-2">
+                                     <span className="text-xs text-slate-500">{t('tabs.aiFilter')}</span>
+                                     <button
+                                         onClick={(e) => {
+                                             e.stopPropagation();
+                                             setIsAiFilterActive(!isAiFilterActive);
+                                         }}
+                                         title={t('tabs.aiFilterTooltip')}
+                                         className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isAiFilterActive ? 'bg-blue-600' : 'bg-slate-300'}`}
+                                     >
+                                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isAiFilterActive ? 'translate-x-4' : 'translate-x-0'}`} />
+                                    </button>
+                                </div>
+                            </button>
+                            <button onClick={() => setActiveTab('mobility')} className={`flex items-center gap-3 p-3 rounded-lg w-full text-left transition-all duration-200 ease-in-out ${activeTab === 'mobility' ? 'bg-white shadow-md scale-105' : 'hover:bg-white/70 hover:scale-105'}`}>
+                                <Footprints className="w-5 h-5 text-purple-600"/>
+                                <span className="font-semibold text-slate-700">{t('tabs.mobility')}</span>
+                            </button>
+                             <button onClick={() => setActiveTab('elocution')} className={`flex items-center gap-3 p-3 rounded-lg w-full text-left transition-all duration-200 ease-in-out ${activeTab === 'elocution' ? 'bg-white shadow-md scale-105' : 'hover:bg-white/70 hover:scale-105'}`}>
+                                <Mic className="w-5 h-5 text-teal-600"/>
+                                <span className="font-semibold text-slate-700">{t('tabs.elocution')}</span>
+                            </button>
+                            <button onClick={() => setActiveTab('smokingCessation')} className={`flex items-center gap-3 p-3 rounded-lg w-full text-left transition-all duration-200 ease-in-out ${activeTab === 'smokingCessation' ? 'bg-white shadow-md scale-105' : 'hover:bg-white/70 hover:scale-105'}`}>
+                                <Flame className="w-5 h-5 text-indigo-600"/>
+                                <span className="font-semibold text-slate-700">{t('tabs.smokingCessation')}</span>
+                            </button>
+                            <button onClick={() => setActiveTab('treatment')} className={`flex items-center gap-3 p-3 rounded-lg w-full text-left transition-all duration-200 ease-in-out ${activeTab === 'treatment' ? 'bg-white shadow-md scale-105' : 'hover:bg-white/70 hover:scale-105'}`}>
+                                <Pill className="w-5 h-5 text-orange-600"/>
+                                <span className="font-semibold text-slate-700">{t('tabs.treatment')}</span>
+                            </button>
+                             <button onClick={() => { setActiveTab('chatbot'); setHasUnreadMessages(false); }} className={`relative flex items-center gap-3 p-3 rounded-lg w-full text-left transition-all duration-200 ease-in-out ${activeTab === 'chatbot' ? 'bg-white shadow-md scale-105' : 'hover:bg-white/70 hover:scale-105'}`}>
+                                {isAiAvailable ? <Bot className="w-5 h-5 text-cyan-600"/> : <BrainCircuit className="w-5 h-5 text-slate-400"/>}
+                                <span className={`font-semibold ${isAiAvailable ? 'text-slate-700' : 'text-slate-400'}`}>{t('tabs.assistant')}</span>
+                                 {hasUnreadMessages && (
+                                    <span className="absolute top-2 right-2 flex h-3 w-3">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                    </span>
+                                )}
+                                {!isAiAvailable && <div className="absolute inset-0 cursor-not-allowed" title={t('errors.aiUnavailableTooltip')}></div>}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="xl:col-span-2 bg-white/60 backdrop-blur-md p-1 rounded-3xl shadow-lg h-[calc(100vh-10rem)] min-h-[40rem]">
+                        {renderPatientTabContent()}
+                    </div>
+                </main>
+            </div>
+          ) : (
+            <div className="w-full max-w-md mx-auto">
+              <PairingScreen onPairSuccess={handlePairSuccess} />
+            </div>
+          )}
         </div>
-      </main>
-      
-      {patientData && (
-        <>
-            <DeviceManagerModal 
-                isOpen={isDeviceManagerOpen}
-                onClose={() => setDeviceManagerOpen(false)}
-                onConnect={handleConnectDevice}
-                onDisconnect={handleDisconnectDevice}
-            />
-            <ProfileModal
-                isOpen={isProfileModalOpen}
-                onClose={() => setProfileModalOpen(false)}
-                patientData={patientData}
-                onUpdate={() => refreshPatientData(patientData.id)}
-            />
-            <EmergencyModal
-                isOpen={isEmergencyModalOpen}
-                onClose={() => setEmergencyModalOpen(false)}
-                onGoToProfile={() => {
-                    setEmergencyModalOpen(false);
-                    setProfileModalOpen(true);
-                }}
-                patientName={patientData.name}
-                contactName={patientData.emergency_contact_name}
-                contactPhone={patientData.emergency_contact_phone}
-            />
-        </>
-      )}
-      <footer className="text-center py-4 text-sm text-slate-500 border-t border-slate-200">
-        {t('footer.copyright')}
-      </footer>
+        <Footer />
     </div>
   );
 }

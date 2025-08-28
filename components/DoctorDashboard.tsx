@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo } from 'react';
 import type { PatientData, RiskLevel, AlertData, NewPatient } from '../types';
-import { calculateRiskScore, calculateMedicationAdherence } from '../services/mockDataService';
+import { calculateRiskScore, calculateMedicationAdherence } from '../services/analyticsService';
 import { addPatient as addPatientService } from '../services/supabaseService';
 import { PatientDetailDashboard } from './PatientDetailDashboard';
 import { AddPatientModal } from './AddPatientModal';
@@ -33,7 +34,7 @@ const getTrend = (measurements: PatientData['measurements']): Trend => {
 };
 
 const StatCard = ({ title, value, icon, valueColor }: {title: string, value: string | number, icon: React.ReactNode, valueColor?: string}) => (
-    <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-sm col-span-1">
+    <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-lg col-span-1 transition-all duration-200 hover:shadow-xl hover:-translate-y-1">
         <div className="flex items-center justify-between pb-2">
             <h3 className="text-sm font-medium text-slate-500">{title}</h3>
             {icon}
@@ -142,7 +143,7 @@ export function DoctorDashboard({ patients, alerts, onPatientAdded }: DoctorDash
                 <StatCard title={t('doctorDashboard.stable')} value={stableCount} icon={<HeartPulse className="h-5 w-5 text-green-500" />} valueColor="text-green-600" />
             </div>
 
-            <div className="bg-white/50 backdrop-blur-sm p-2 rounded-xl shadow-sm">
+            <div className="bg-white/60 backdrop-blur-md p-2 rounded-2xl shadow-lg">
                 <div className="p-1 bg-slate-200/50 rounded-lg flex items-center space-x-1">
                     <TabButton isActive={activeTab === 'patients'} onClick={() => setActiveTab('patients')}>{t('doctorDashboard.patients')}</TabButton>
                     <TabButton isActive={activeTab === 'alerts'} onClick={() => setActiveTab('alerts')}>
@@ -152,7 +153,7 @@ export function DoctorDashboard({ patients, alerts, onPatientAdded }: DoctorDash
             </div>
 
             {activeTab === 'patients' && (
-                 <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-sm space-y-4">
+                 <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-lg space-y-4">
                     <div className="flex flex-col sm:flex-row gap-4">
                         <div className="relative flex-grow">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -176,7 +177,7 @@ export function DoctorDashboard({ patients, alerts, onPatientAdded }: DoctorDash
                          </select>
                          <button 
                             onClick={() => setAddPatientModalOpen(true)}
-                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-blue-500 to-blue-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105 active:scale-95"
                         >
                             <PlusCircle className="w-5 h-5" />
                             <span>{t('doctorDashboard.addPatient')}</span>
@@ -202,7 +203,7 @@ export function DoctorDashboard({ patients, alerts, onPatientAdded }: DoctorDash
                                     const adherenceColor = p.adherence < 75 ? 'text-red-600' : p.adherence < 90 ? 'text-yellow-600' : 'text-green-600';
 
                                     return (
-                                        <tr key={p.id} className={`border-b border-slate-200/80 ${getRiskClasses(p.risk.level).row}`}>
+                                        <tr key={p.id} className={`border-b border-slate-200/80 ${getRiskClasses(p.risk.level).row} transition-all duration-200 hover:brightness-95`}>
                                             <td className="px-6 py-4 font-medium text-slate-900">{p.name}<div className="font-normal text-slate-500 text-xs">{p.age} ans</div></td>
                                             <td className="px-6 py-4"><div className="flex items-center gap-2 font-semibold">{p.risk.score} <span className={`h-2 w-2 rounded-full ${getRiskClasses(p.risk.level).dot}`}></span></div></td>
                                             <td className={`px-6 py-4 font-semibold ${adherenceColor}`}>{p.adherence}%</td>
@@ -210,7 +211,7 @@ export function DoctorDashboard({ patients, alerts, onPatientAdded }: DoctorDash
                                             <td className="px-6 py-4"><TrendIcon trend={p.trend} /></td>
                                             <td className={`px-6 py-4 font-semibold ${getRiskClasses(p.risk.level).color}`}>{t(`doctorDashboard.riskLevels.${p.risk.level.toLowerCase()}` as any)}</td>
                                             <td className="px-6 py-4">
-                                                 <button onClick={() => setSelectedPatientId(p.id)} className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700">
+                                                 <button onClick={() => setSelectedPatientId(p.id)} className="text-sm bg-gradient-to-br from-blue-500 to-blue-600 text-white px-3 py-1.5 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105 active:scale-95">
                                                     {t('doctorDashboard.details')}
                                                 </button>
                                             </td>

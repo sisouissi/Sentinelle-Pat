@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect } from 'react';
 import type { ChatMessage } from '../types';
 import { Bot, User } from './icons';
@@ -30,7 +31,7 @@ export function ChatHistoryViewer({ history }: ChatHistoryViewerProps): React.Re
   };
 
   return (
-    <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-sm h-[45rem] flex flex-col animate-fade-in">
+    <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-lg h-[45rem] flex flex-col animate-fade-in transition-all duration-300 hover:shadow-xl">
       <h3 className="text-md font-semibold text-slate-700 mb-4 pb-3 border-b border-slate-200">
         {t('chatHistory.title')}
       </h3>

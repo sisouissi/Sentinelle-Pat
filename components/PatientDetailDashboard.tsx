@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import type { PatientData, CompletePrediction, ChatMessage } from '../types';
 import * as supabaseService from '../services/supabaseService';
@@ -42,7 +43,7 @@ export function PatientDetailDashboard({ patient, onBack }: PatientDetailDashboa
 
     useEffect(() => {
         // Start the prediction service when the component mounts
-        predictionService.startStreaming(patient.id);
+        predictionService.startStreaming(patient);
         const unsubscribe = predictionService.onUpdate(setPrediction);
 
         // Fetch chat history
@@ -58,7 +59,7 @@ export function PatientDetailDashboard({ patient, onBack }: PatientDetailDashboa
             unsubscribe();
             predictionService.stopStreaming();
         };
-    }, [patient.id, activeTab, chatHistory]);
+    }, [patient, activeTab, chatHistory]);
 
     const renderContent = () => {
         if (activeTab === 'prediction') {
@@ -72,11 +73,11 @@ export function PatientDetailDashboard({ patient, onBack }: PatientDetailDashboa
                        <AlertsTimeline alerts={prediction.alerts} />
                     </div>
                     <div className="xl:col-span-2 space-y-5">
-                        <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-sm h-72">
+                        <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-lg h-72 transition-shadow duration-300 hover:shadow-xl">
                            <h3 className="text-md font-semibold text-slate-700 mb-2">{t('patientDetail.hourlyActivity')}</h3>
                            <RealTimeChart activityData={prediction.activityData} />
                         </div>
-                         <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-sm">
+                         <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-lg transition-shadow duration-300 hover:shadow-xl">
                            <h3 className="text-md font-semibold text-slate-700 mb-2">{t('patientDetail.mobilityHeatmap')}</h3>
                            <LocationHeatmap heatmapData={prediction.heatmapData} />
                         </div>

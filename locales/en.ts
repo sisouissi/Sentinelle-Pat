@@ -1,4 +1,3 @@
-
 export const translations = {
     app: {
         loading: "Loading application...",
@@ -16,6 +15,8 @@ export const translations = {
         trends: "Trends",
         smartphone: "Smartphone",
         mobility: "Mobility",
+        elocution: "Speech",
+        smokingCessation: "Quit Smoking",
         treatment: "Treatment",
         assistant: "Assistant",
         aiFilter: "AI Filter",
@@ -108,6 +109,47 @@ export const translations = {
             vehicle: "In Vehicle"
         }
     },
+    speech: {
+        title: "Speech Analysis",
+        description: "Detects early signs of respiratory distress by analyzing your voice.",
+        startAnalysis: "Start New Analysis",
+        analyzing: "Analyzing your voice...",
+        latestAnalysis: "Latest Analysis",
+        speechRate: "Speech Rate",
+        wpm: "wpm",
+        pauseFrequency: "Pause Frequency",
+        ppm: "pauses/min",
+        articulationScore: "Articulation Score",
+        trendTitle: "7-Day Trend",
+        speechRateKey: "Speech Rate",
+        pauseFrequencyKey: "Pause Freq."
+    },
+    smoking: {
+        title: "Smoking Cessation Support",
+        nonSmokerTitle: "Non-Smoker Status",
+        nonSmokerDescription: "Excellent! Continuing to be smoke-free is one of the best things you can do for your health.",
+        dailyStats: "Today's Statistics",
+        smokedToday: "Cigarettes smoked",
+        cravingsToday: "Cravings felt",
+        smokeFreeDays: "Smoke-free days",
+        logCraving: "I had a craving",
+        logSmoked: "I smoked",
+        weeklyChartTitle: "7-Day History",
+        cigarettesLabel: "Cigarettes",
+        activityLogTitle: "Activity Log",
+        smokedEvent: "Smoked a cigarette",
+        cravingEvent: "Felt a craving",
+        triggerLabel: "Trigger:",
+        noTrigger: "Not specified",
+        logModal: {
+            titleCraving: "Log a Craving",
+            titleSmoked: "Log a Cigarette",
+            question: "What was the trigger?",
+            placeholder: "e.g., After meal, Stress, Coffee...",
+            saveButton: "Save",
+            skipButton: "Skip"
+        }
+    },
     deviceManager: {
         title: "Device Management",
         total: "Total",
@@ -144,7 +186,10 @@ export const translations = {
         askQuestion: "Ask me a question...",
         useVoiceInput: "Use voice input",
         deviceConnected: "Connection successful. Now sending live data to the server for analysis.",
-        deviceDisconnected: "You have disconnected. Real-time monitoring has stopped."
+        deviceDisconnected: "You have disconnected. Real-time monitoring has stopped.",
+        errors: {
+            noSpeech: "I didn't hear anything. Please try again."
+        }
     },
     pairing: {
         title: "Welcome to Sentinel",
@@ -350,6 +395,6 @@ export const translations = {
         noMedication: "No medication configured."
     },
     footer: {
-        copyright: "© 2025 Sentinel: Application developed by Dr Zouhair Souissi. All rights reserved"
+        copyright: "© 2025 Sentinel: Simulation application (Patient Interface) developed by Dr Zouhair Souissi. All rights reserved."
     }
 };

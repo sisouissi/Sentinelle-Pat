@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { PatientData } from '../types';
 import { User, Phone } from './icons';
@@ -10,7 +11,7 @@ interface PatientInfoCardProps {
 export function PatientInfoCard({ patient }: PatientInfoCardProps): React.ReactNode {
     const { t } = useTranslation();
     return (
-        <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-sm">
+        <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
             <h3 className="text-md font-semibold text-slate-700 mb-3 flex items-center gap-2">
                 <User className="w-5 h-5 text-blue-600" />
                 {t('doctorDashboard.patientInfo')}

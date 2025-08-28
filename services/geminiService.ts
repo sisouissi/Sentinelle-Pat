@@ -1,32 +1,18 @@
+
 import type { PatientData, ChatMessage, RiskLevel } from '../types';
 
-// La clé API a été déplacée vers le backend (api/gemini.ts).
-// Le frontend n'a plus besoin de la connaître.
-// Nous considérons que l'IA est toujours disponible si le backend est configuré.
+// In demo mode, AI is always available.
 export const isAiAvailable = true;
 
 type Language = 'fr' | 'en' | 'ar';
 
 export async function getInitialGreeting(lang: Language = 'fr'): Promise<string> {
-    const fallbackGreeting = lang === 'en' 
-        ? "Hello! I am your AI health assistant. How are you feeling today?"
-        : lang === 'ar'
-        ? "مرحباً! أنا مساعدك الصحي بالذكاء الاصطناعي. كيف تشعر اليوم؟"
-        : "Bonjour ! Je suis votre assistant de santé IA. Comment vous sentez-vous aujourd'hui ?";
-    
-    try {
-        const response = await fetch('/api/gemini', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'greeting', lang }),
-        });
-        if (!response.ok) throw new Error('Failed to fetch initial greeting');
-        const data = await response.json();
-        return data.text;
-    } catch (error) {
-        console.error("Error getting initial greeting from backend:", error);
-        return fallbackGreeting;
-    }
+    const greetings = {
+        fr: "Bonjour ! Je suis votre assistant de santé IA. Comment puis-je vous aider aujourd'hui ?",
+        en: "Hello! I am your AI health assistant. How can I help you today?",
+        ar: "مرحباً! أنا مساعدك الصحي بالذكاء الاصطناعي. كيف يمكنني مساعدتك اليوم؟"
+    };
+    return Promise.resolve(greetings[lang]);
 }
 
 export async function* getAIResponseStream(
@@ -35,71 +21,42 @@ export async function* getAIResponseStream(
     lang: Language = 'fr'
 ): AsyncGenerator<string, void, undefined> {
     
-    try {
-        const response = await fetch('/api/gemini', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ type: 'stream', history, patientData, lang }),
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API error: ${response.status} ${response.statusText} - ${errorText}`);
-        }
-
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-
-        if (!reader) {
-            throw new Error('Failed to get response reader');
-        }
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) {
-                break;
-            }
-            yield decoder.decode(value, { stream: true });
-        }
-
-    } catch (error) {
-        console.error("Error getting AI response stream from backend:", error);
-        if (lang === 'en') yield "I'm sorry, I encountered an error. Please try again.";
-        else if (lang === 'ar') yield "أنا آسف، لقد واجهت خطأ. يرجى المحاولة مرة أخرى.";
-        else yield "Je suis désolé, j'ai rencontré une erreur. Veuillez réessayer.";
+    const responses = {
+        fr: "Bien sûr. D'après vos dernières données, votre saturation en oxygène est stable. C'est une bonne nouvelle. Assurez-vous de bien suivre votre traitement et de vous reposer suffisamment. N'hésitez pas si vous avez d'autres questions.",
+        en: "Of course. Based on your latest data, your oxygen saturation is stable. That's good news. Make sure to follow your treatment plan and get enough rest. Don't hesitate if you have other questions.",
+        ar: "بالطبع. بناءً على أحدث بياناتك، فإن تشبع الأكسجين لديك مستقر. هذه أخبار جيدة. تأكد من اتباع خطة العلاج الخاصة بك والحصول على قسط كافٍ من الراحة. لا تتردد إذا كان لديك أسئلة أخرى."
+    };
+    const fullText = responses[lang] || responses['fr'];
+    
+    for (const char of fullText) {
+        yield char;
+        await new Promise(resolve => setTimeout(resolve, 15)); // Simulate streaming delay
     }
 }
 
 export async function getProactiveQuestion(patientData: PatientData, riskLevel: RiskLevel, lang: Language = 'fr'): Promise<ChatMessage | null> {
-    try {
-        const response = await fetch('/api/gemini', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'proactive_question', patientData, riskLevel, lang }),
-        });
-
-        if (!response.ok) throw new Error('Failed to fetch proactive question');
-        
-        const json = await response.json();
-        
-        return {
-            role: 'model',
-            text: json.question,
-            questionType: json.type,
-            options: json.options,
-        };
-
-    } catch (error) {
-        console.error("Error generating proactive question from backend:", error);
-        return {
-            role: 'model',
-            text: lang === 'en' ? "I've noticed a change in your measurements. How are you feeling right now?" : lang === 'ar' ? "لقد لاحظت تغيراً في قياساتك. كيف تشعر الآن؟" : "J'ai remarqué un changement dans vos mesures. Comment vous sentez-vous en ce moment ?",
-        };
-    }
+    const questions = {
+        fr: {
+            role: 'model' as const,
+            text: "J'ai remarqué une légère baisse de votre activité aujourd'hui. Comment vous sentez-vous ?",
+            questionType: 'multiple_choice' as const,
+            options: ['Je me sens bien', 'Un peu plus fatigué que d\'habitude', 'J\'ai plus de mal à respirer'],
+        },
+        en: {
+            role: 'model' as const,
+            text: "I've noticed a slight decrease in your activity today. How are you feeling?",
+            questionType: 'multiple_choice' as const,
+            options: ['I feel fine', 'A bit more tired than usual', 'I have more trouble breathing'],
+        },
+        ar: {
+            role: 'model' as const,
+            text: "لاحظت انخفاضًا طفيفًا في نشاطك اليوم. كيف تشعر؟",
+            questionType: 'multiple_choice' as const,
+            options: ['أشعر أنني بحالة جيدة', 'أشعر بالتعب أكثر من المعتاد', 'أواجه صعوبة أكبر في التنفس'],
+        }
+    };
+    return Promise.resolve(questions[lang] || questions['fr']);
 }
-
 
 export async function analyzeUserResponse(
     originalQuestion: string,
@@ -107,25 +64,10 @@ export async function analyzeUserResponse(
     patientData: PatientData,
     lang: Language = 'fr'
 ): Promise<string> {
-    const fallbackResponse = lang === 'en' 
-        ? "Thank you for sharing that with me. Please continue to monitor how you feel and rest if you need to."
-        : lang === 'ar'
-        ? "شكراً لمشاركتك هذا معي. يرجى الاستمرار في مراقبة شعورك والراحة إذا احتجت إلى ذلك."
-        : "Merci d'avoir partagé cela avec moi. Continuez à surveiller comment vous vous sentez et reposez-vous si nécessaire.";
-
-    try {
-        const response = await fetch('/api/gemini', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'analyze_response', originalQuestion, userResponse, patientData, lang }),
-        });
-
-        if (!response.ok) throw new Error('Failed to fetch analysis response');
-        
-        const data = await response.json();
-        return data.text;
-    } catch (error) {
-        console.error("Error analyzing user response from backend:", error);
-        return fallbackResponse;
-    }
+    const responses = {
+        fr: "Merci pour cette information. Je l'ai notée. N'hésitez pas à me solliciter si vous avez d'autres questions. Pensez à bien vous hydrater.",
+        en: "Thank you for that information. I've made a note of it. Feel free to reach out if you have any other questions. Remember to stay hydrated.",
+        ar: "شكراً لك على هذه المعلومة. لقد سجلتها. لا تتردد في التواصل معي إذا كان لديك أي أسئلة أخرى. تذكر أن تشرب كمية كافية من الماء."
+    };
+    return Promise.resolve(responses[lang] || responses['fr']);
 }

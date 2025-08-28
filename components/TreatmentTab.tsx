@@ -90,7 +90,7 @@ export function TreatmentTab({ patientData, onDataChange }: TreatmentTabProps): 
         logged.sort((a, b) => new Date(a.log.taken_at).getTime() - new Date(b.log.taken_at).getTime());
         missed.sort((a, b) => a.schedule.time_of_day.localeCompare(b.schedule.time_of_day));
         
-        return { upcomingDoses: upcoming, actionablePastDoses: actionable, loggedDoses, missedDoses: missed };
+        return { upcomingDoses: upcoming, actionablePastDoses: actionable, loggedDoses: logged, missedDoses: missed };
     }, [patientData.medications, patientData.medication_logs, missedScheduleIds]);
 
     const handleMarkAsTaken = async (scheduleId: number) => {
@@ -118,7 +118,7 @@ export function TreatmentTab({ patientData, onDataChange }: TreatmentTabProps): 
             />
             <div className="flex items-center justify-between px-2">
                 <h3 className="text-lg font-semibold text-slate-800">{t('treatment.title')}</h3>
-                <button onClick={handleAddClick} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+                <button onClick={handleAddClick} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg hover:shadow-md transition-all transform hover:scale-105 active:scale-95">
                     <PlusCircle className="w-5 h-5" />
                     <span className="hidden sm:inline">{t('treatment.addMedication')}</span>
                 </button>
@@ -130,13 +130,13 @@ export function TreatmentTab({ patientData, onDataChange }: TreatmentTabProps): 
                     <h4 className="font-semibold text-slate-700 mb-2">{t('treatment.todaysSchedule')}</h4>
                     <div className="space-y-2">
                         {actionablePastDoses.map(({ med, schedule }) => (
-                            <div key={schedule.id} className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded-lg flex items-center justify-between animate-fade-in">
+                            <div key={schedule.id} className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded-lg flex items-center justify-between animate-fade-in shadow-md transition-all duration-300 hover:shadow-lg hover:scale-[1.02]">
                                 <div>
                                     <p className="font-semibold text-yellow-800">{med.name}</p>
                                     <p className="text-sm text-yellow-600">{med.dosage} - {schedule.time_of_day}</p>
                                 </div>
                                 <div className="flex flex-col sm:flex-row gap-2">
-                                    <button onClick={() => handleMarkAsTaken(schedule.id)} className="px-3 py-1.5 text-xs font-semibold text-white bg-green-500 rounded-lg hover:bg-green-600">
+                                    <button onClick={() => handleMarkAsTaken(schedule.id)} className="px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-br from-green-500 to-green-600 rounded-lg hover:shadow-md transition-all transform hover:scale-105 active:scale-95">
                                         {t('treatment.markAsTaken')}
                                     </button>
                                     <button onClick={() => handleMarkAsMissed(schedule.id)} className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-200 rounded-lg hover:bg-slate-300">
@@ -146,18 +146,18 @@ export function TreatmentTab({ patientData, onDataChange }: TreatmentTabProps): 
                             </div>
                         ))}
                         {upcomingDoses.map(({ med, schedule }) => (
-                            <div key={schedule.id} className="bg-blue-50 p-3 rounded-lg flex items-center justify-between">
+                            <div key={schedule.id} className="bg-blue-50 p-3 rounded-lg flex items-center justify-between shadow-md transition-all duration-300 hover:shadow-lg hover:scale-[1.02]">
                                 <div>
                                     <p className="font-semibold text-blue-800">{med.name}</p>
                                     <p className="text-sm text-blue-600">{med.dosage} - {schedule.time_of_day}</p>
                                 </div>
-                                <button onClick={() => handleMarkAsTaken(schedule.id)} className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">
+                                <button onClick={() => handleMarkAsTaken(schedule.id)} className="px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg hover:shadow-md transition-all transform hover:scale-105 active:scale-95">
                                     {t('treatment.markAsTaken')}
                                 </button>
                             </div>
                         ))}
                         {loggedDoses.map(({ med, schedule, log }) => (
-                             <div key={schedule.id} className="bg-green-50 p-3 rounded-lg flex items-center justify-between opacity-70">
+                             <div key={schedule.id} className="bg-green-50 p-3 rounded-lg flex items-center justify-between opacity-70 shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.01]">
                                 <div>
                                     <p className="font-semibold text-green-800 line-through">{med.name}</p>
                                     <p className="text-sm text-green-600">{med.dosage} - {schedule.time_of_day}</p>
@@ -169,7 +169,7 @@ export function TreatmentTab({ patientData, onDataChange }: TreatmentTabProps): 
                             </div>
                         ))}
                          {missedDoses.map(({ med, schedule }) => (
-                             <div key={schedule.id} className="bg-red-50 p-3 rounded-lg flex items-center justify-between opacity-70 animate-fade-in">
+                             <div key={schedule.id} className="bg-red-50 p-3 rounded-lg flex items-center justify-between opacity-70 animate-fade-in shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.01]">
                                 <div>
                                     <p className="font-semibold text-red-800 line-through">{med.name}</p>
                                     <p className="text-sm text-red-600">{med.dosage} - {schedule.time_of_day}</p>
@@ -200,7 +200,7 @@ export function TreatmentTab({ patientData, onDataChange }: TreatmentTabProps): 
                      ) : (
                         <div className="space-y-2">
                             {patientData.medications.map(med => (
-                                <div key={med.id} onClick={() => handleEditClick(med)} className="bg-slate-100 p-3 rounded-lg cursor-pointer hover:bg-slate-200">
+                                <div key={med.id} onClick={() => handleEditClick(med)} className="bg-slate-100 p-3 rounded-lg cursor-pointer transition-all duration-200 hover:bg-slate-200/80 hover:shadow-md hover:scale-[1.02]">
                                     <p className="font-semibold text-slate-800">{med.name}</p>
                                     <p className="text-sm text-slate-600">{med.dosage}</p>
                                     <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">

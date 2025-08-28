@@ -1,4 +1,3 @@
-
 export const translations = {
     app: {
         loading: "Chargement de l'application...",
@@ -16,6 +15,8 @@ export const translations = {
         trends: "Tendances",
         smartphone: "Smartphone",
         mobility: "Mobilité",
+        elocution: "Élocution",
+        smokingCessation: "Sevrage Tabac",
         treatment: "Traitement",
         assistant: "Assistant",
         aiFilter: "Filtre IA",
@@ -108,6 +109,47 @@ export const translations = {
             vehicle: "En Véhicule"
         }
     },
+    speech: {
+      title: "Analyse de l'Élocution",
+      description: "Détecte les signes précoces de détresse respiratoire en analysant votre voix.",
+      startAnalysis: "Lancer une nouvelle analyse",
+      analyzing: "Analyse de votre voix en cours...",
+      latestAnalysis: "Dernière Analyse",
+      speechRate: "Débit de parole",
+      wpm: "mots/min",
+      pauseFrequency: "Fréquence des pauses",
+      ppm: "pauses/min",
+      articulationScore: "Score d'articulation",
+      trendTitle: "Tendance sur 7 jours",
+      speechRateKey: "Débit Parole",
+      pauseFrequencyKey: "Fréq. Pauses"
+    },
+    smoking: {
+      title: "Soutien au Sevrage Tabagique",
+      nonSmokerTitle: "Statut Non-Fumeur",
+      nonSmokerDescription: "Excellent ! Continuer à ne pas fumer est l'une des meilleures choses que vous puissiez faire pour votre santé.",
+      dailyStats: "Statistiques du Jour",
+      smokedToday: "Cigarettes fumées",
+      cravingsToday: "Envies ressenties",
+      smokeFreeDays: "Jours sans tabac",
+      logCraving: "J'ai eu une envie",
+      logSmoked: "J'ai fumé",
+      weeklyChartTitle: "Historique sur 7 jours",
+      cigarettesLabel: "Cigarettes",
+      activityLogTitle: "Journal d'Activité",
+      smokedEvent: "Cigarette fumée",
+      cravingEvent: "Envie ressentie",
+      triggerLabel: "Déclencheur :",
+      noTrigger: "Non spécifié",
+      logModal: {
+        titleCraving: "Enregistrer une envie",
+        titleSmoked: "Enregistrer une cigarette",
+        question: "Quel a été le déclencheur ?",
+        placeholder: "Ex: Après le repas, Stress, Café...",
+        saveButton: "Enregistrer",
+        skipButton: "Passer"
+      }
+    },
     deviceManager: {
         title: "Gestion des Appareils",
         total: "Total",
@@ -144,7 +186,10 @@ export const translations = {
         askQuestion: "Posez-moi une question...",
         useVoiceInput: "Utiliser la saisie vocale",
         deviceConnected: "Connexion réussie. J'envoie maintenant les données en direct au serveur pour analyse.",
-        deviceDisconnected: "Vous vous êtes déconnecté. La surveillance en temps réel est arrêtée."
+        deviceDisconnected: "Vous vous êtes déconnecté. La surveillance en temps réel est arrêtée.",
+        errors: {
+            noSpeech: "Je n'ai rien entendu. Veuillez réessayer."
+        }
     },
     pairing: {
         title: "Bienvenue sur Sentinelle",
@@ -350,6 +395,6 @@ export const translations = {
         noMedication: "Aucun médicament configuré."
     },
     footer: {
-        copyright: "© 2025 Sentinelle : Application développée par Dr Zouhair Souissi. Tous droits réservés"
+        copyright: "© 2025 Sentinelle : Application de simulation (Interface patient) développée par Dr Zouhair Souissi. Tous droits réservés."
     }
 };

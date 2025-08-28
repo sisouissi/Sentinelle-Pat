@@ -8,7 +8,7 @@ import { useTranslation } from '../contexts/LanguageContext';
 const mobilityService = MobilityService.getInstance();
 
 const StatCard = ({ title, value, unit, icon }: { title: string, value: string | number, unit?: string, icon: React.ReactNode }) => (
-    <div className="bg-slate-100/80 p-3 rounded-lg flex-1">
+    <div className="bg-white/70 backdrop-blur-md p-3 rounded-xl shadow-lg flex-1 transition-all duration-200 hover:scale-105 hover:shadow-xl">
         <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-1">
             <span>{title}</span>
             {icon}
@@ -20,7 +20,7 @@ const StatCard = ({ title, value, unit, icon }: { title: string, value: string |
 );
 
 const SensorDataCard = ({ title, data, icon }: { title: string, data: { [key: string]: number }, icon: React.ReactNode }) => (
-    <div className="bg-slate-100/80 p-3 rounded-lg col-span-1">
+    <div className="bg-white/70 backdrop-blur-md p-3 rounded-xl shadow-lg col-span-1 transition-all duration-200 hover:scale-105 hover:shadow-xl">
         <div className="flex items-center gap-2 text-slate-600 font-semibold text-sm mb-2">
             {icon} {title}
         </div>
@@ -45,7 +45,7 @@ const ActivityDisplay = ({ activity }: { activity: ActivityType }) => {
     };
     const current = activityInfo[activity];
     return (
-        <div className={`flex flex-col items-center justify-center p-4 rounded-lg bg-slate-100/80 ${current.color}`}>
+        <div className={`flex flex-col items-center justify-center p-4 rounded-xl shadow-lg bg-white/70 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-xl ${current.color}`}>
             {current.icon}
             <p className="font-bold text-lg mt-2">{current.text}</p>
         </div>
@@ -55,7 +55,7 @@ const ActivityDisplay = ({ activity }: { activity: ActivityType }) => {
 const PermissionRequestView = ({ onRequest }: { onRequest: () => void }) => {
     const { t } = useTranslation();
     return (
-        <div className="flex flex-col items-center justify-center h-full text-center p-4 bg-slate-100 rounded-lg">
+        <div className="flex flex-col items-center justify-center h-full text-center p-4 bg-white/70 backdrop-blur-md rounded-2xl shadow-xl">
             <Shield className="w-12 h-12 text-blue-500 mb-4" />
             <h3 className="text-lg font-semibold text-slate-800">{t('mobility.permission.title')}</h3>
             <p className="text-sm text-slate-600 max-w-sm mt-1 mb-4">
@@ -81,7 +81,7 @@ const DashboardView = ({ data }: { data: MobilityUpdateData }) => {
     return (
         <div className="space-y-3 animate-fade-in">
             <div className="flex items-center gap-3">
-                 <button onClick={handleToggleTracking} className={`flex-grow flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg transition-colors ${data.isTracking ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}>
+                 <button onClick={handleToggleTracking} className={`flex-grow flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-md ${data.isTracking ? 'bg-gradient-to-br from-red-500 to-red-600' : 'bg-gradient-to-br from-green-500 to-green-600'}`}>
                     {data.isTracking ? <><PowerOff className="w-4 h-4" /> {t('mobility.stopTracking')}</> : <><Power className="w-4 h-4" /> {t('mobility.startTracking')}</>}
                 </button>
                 <div className={`flex items-center gap-2 p-2 rounded-lg text-xs font-medium ${data.batteryLevel < 20 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>

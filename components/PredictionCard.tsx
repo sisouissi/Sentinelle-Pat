@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { CompletePrediction } from '../types';
 import { BrainCircuit, TrendingDown, Cloudy, Lungs, BedDouble, Footprints } from './icons';
@@ -30,7 +31,7 @@ export function PredictionCard({ prediction }: { prediction: CompletePrediction 
     }
     
     return (
-        <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-sm">
+        <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1">
             <h3 className="text-md font-semibold text-slate-700 mb-3 flex items-center gap-2">
                 <BrainCircuit className="w-5 h-5 text-blue-600" />
                 {t('prediction.cardTitle')}

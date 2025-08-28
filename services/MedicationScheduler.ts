@@ -5,7 +5,8 @@ type TFunction = (key: any, options?: { [key: string]: string | number }) => str
 
 export class MedicationScheduler {
     private static instance: MedicationScheduler;
-    private notificationTimers: NodeJS.Timeout[] = [];
+    // Fix: Use 'number' for setTimeout return type in browser environment instead of NodeJS.Timeout
+    private notificationTimers: number[] = [];
     private patientId: number | null = null;
     private t: TFunction | null = null;
 
@@ -66,21 +67,16 @@ export class MedicationScheduler {
         const title = this.t('treatment.notification.title');
         const body = this.t('treatment.notification.body', { name, dosage });
         
-        // FIX: The 'actions' property is not supported on the NotificationOptions type for notifications created in the window context. 
-        // This feature is available for notifications triggered by a service worker.
-        // The property has been removed to resolve the error.
         const notification = new Notification(title, {
             body: body,
             icon: '/vite.svg',
         });
 
-        // FIX: With the removal of notification actions, the onclick handler is simplified.
-        // The default behavior on clicking the notification is to log the medication as taken.
-        // The 'snooze' functionality is no longer possible without service worker-based actions.
         notification.onclick = (event) => {
             event.preventDefault();
             if (this.patientId !== null) {
-                supabaseService.logMedicationIntake(this.patientId, scheduleId);
+                supabaseService.logMedicationIntake(this.patientId, scheduleId)
+                    .catch(err => console.error("Failed to log intake from notification:", err));
             }
             notification.close();
         };

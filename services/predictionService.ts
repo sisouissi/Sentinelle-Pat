@@ -1,13 +1,10 @@
 import type { CompletePrediction, FactorAnalysis, AnomalyAlert, PatientData, RiskLevel } from '../types';
-// FIX: Import 'allPatients' directly instead of the non-existent 'getDoctorDashboardData' function.
-import { allPatients, calculateRiskScore } from './mockDataService';
+import { calculateRiskScore } from './analyticsService';
 
 class PredictionService {
     private static instance: PredictionService;
     private intervalId: number | null = null;
     private callbacks: Set<(data: CompletePrediction) => void> = new Set();
-    // FIX: Initialize with the imported 'allPatients' array.
-    private allPatients: PatientData[] = allPatients;
     private currentPatient: PatientData | null = null;
     private lastPrediction: CompletePrediction | null = null;
 
@@ -20,11 +17,11 @@ class PredictionService {
         return PredictionService.instance;
     }
 
-    public startStreaming(patientId: number) {
+    public startStreaming(patient: PatientData) {
         this.stopStreaming();
-        this.currentPatient = this.allPatients.find(p => p.id === patientId) || null;
+        this.currentPatient = patient;
         if (!this.currentPatient) {
-            console.error(`Patient with ID ${patientId} not found.`);
+            console.error(`Invalid patient data provided to PredictionService.`);
             return;
         }
 

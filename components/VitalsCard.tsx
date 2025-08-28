@@ -10,12 +10,15 @@ interface VitalsCardProps {
   icon: React.ReactNode;
   isConnected: boolean;
   onConnectClick: () => void;
+  style?: React.CSSProperties;
 }
 
-export function VitalsCard({ title, value, trend, icon, isConnected, onConnectClick }: VitalsCardProps): React.ReactNode {
+export function VitalsCard({ title, value, trend, icon, isConnected, onConnectClick, style }: VitalsCardProps): React.ReactNode {
   const { t } = useTranslation();
   return (
-    <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-sm col-span-1 flex flex-col justify-between">
+    <div 
+      style={style}
+      className="bg-white/70 backdrop-blur-md p-4 rounded-2xl shadow-lg col-span-1 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 hover:shadow-xl animate-fade-in">
       <div className="flex items-start justify-between mb-2">
         <div>
             <h3 className="text-sm font-medium text-slate-500">{title}</h3>
@@ -37,7 +40,10 @@ export function VitalsCard({ title, value, trend, icon, isConnected, onConnectCl
                 {t('deviceManager.statusActive')}
             </div>
          ) : (
-            <button onClick={onConnectClick} className="w-full flex items-center justify-center text-xs text-blue-700 font-semibold bg-blue-100 hover:bg-blue-200 px-2 py-1 rounded-full transition-colors">
+            <button 
+                onClick={onConnectClick} 
+                className="w-full flex items-center justify-center text-xs text-white font-semibold bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 hover:shadow-md px-2 py-1.5 rounded-full transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95"
+            >
                 <Bluetooth className="w-3 h-3 mr-1.5"/>
                 {t('deviceManager.connect')}
             </button>

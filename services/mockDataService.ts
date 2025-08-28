@@ -1,4 +1,4 @@
-import type { PatientData, Measurement, RiskLevel, SmartphoneData, Medication, MedicationLog } from '../types';
+import type { PatientData, Measurement, SmartphoneData, Medication, MedicationLog, SpeechAnalysis, SmokingCessationData, SmokingLog } from '../types';
 
 function createMeasurements(baseSpo2: number, baseHeartRate: number, trend: 'stable' | 'down' | 'up'): Measurement[] {
   const measurements: Measurement[] = [];
@@ -24,10 +24,10 @@ function createMeasurements(baseSpo2: number, baseHeartRate: number, trend: 'sta
     } else if (trend === 'up') {
       currentSpo2 += (0.05 + Math.random() * 0.08);
       currentHeartRate -= (0.1 + Math.random() * 0.15);
+    } else { // stable
+      currentSpo2 += spo2Change;
+      currentHeartRate += hrChange;
     }
-
-    currentSpo2 += spo2Change;
-    currentHeartRate += hrChange;
     
     currentSpo2 = Math.max(88, Math.min(99, currentSpo2));
     currentHeartRate = Math.max(55, Math.min(115, currentHeartRate));
@@ -41,6 +41,14 @@ const highRiskSmartphoneData: SmartphoneData = {
     cough: { coughFrequencyPerHour: 12, coughIntensityDb: 75, nightCoughEpisodes: 8, coughPattern: "wheezing", respiratoryRate: 24 },
     environment: { homeTimePercent: 95, travelRadiusKm: 0.5, airQualityIndex: 110, weather: { temperatureC: 3, humidityPercent: 85 } },
     reported: { symptoms: { breathlessness: 8, cough: 7, fatigue: 9 }, medication: { adherencePercent: 75, missedDoses: 2 }, qualityOfLife: { CAT: 32 } },
+};
+
+const stableSmartphoneData: SmartphoneData = {
+    activity: { steps: 8500, distanceKm: 6.2, activeMinutes: 75, sedentaryMinutes: 250, floorsClimbed: 8, movementSpeedKmh: 4.1 },
+    sleep: { totalSleepHours: 7.5, sleepEfficiency: 92, awakeMinutes: 25, remSleepMinutes: 90, deepSleepMinutes: 80, sleepPosition: "lateral", nightMovements: 15 },
+    cough: { coughFrequencyPerHour: 2, coughIntensityDb: 60, nightCoughEpisodes: 1, coughPattern: "dry", respiratoryRate: 16 },
+    environment: { homeTimePercent: 60, travelRadiusKm: 5.5, airQualityIndex: 45, weather: { temperatureC: 22, humidityPercent: 60 } },
+    reported: { symptoms: { breathlessness: 2, cough: 1, fatigue: 2 }, medication: { adherencePercent: 98, missedDoses: 0 }, qualityOfLife: { CAT: 8 } },
 };
 
 // Mock medications
@@ -70,6 +78,58 @@ const mockMedicationLogs: MedicationLog[] = (() => {
     return logs;
 })();
 
+// --- New Mock Data ---
+
+// Generate mock speech analysis data for the last 7 days
+function createSpeechAnalysisHistory(): SpeechAnalysis[] {
+  const history: SpeechAnalysis[] = [];
+  const today = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const day = new Date(today);
+    day.setDate(today.getDate() - i);
+    history.push({
+      timestamp: day,
+      speechRate: 140 + (Math.random() - 0.5) * 20, // 130-150 wpm
+      pauseFrequency: 4 + (Math.random() - 0.5) * 2, // 3-5 pauses/min
+      articulationScore: 90 + (Math.random() - 0.5) * 10, // 85-95%
+    });
+  }
+  return history;
+}
+
+// Generate mock smoking cessation data for a smoker
+function createSmokerData(): SmokingCessationData {
+  const logs: SmokingLog[] = [];
+  const today = new Date();
+  // Simulate 2 smoke-free days
+  for (let i = 6; i >= 2; i--) {
+      const day = new Date(today);
+      day.setDate(today.getDate() - i);
+      // Add 2-5 smoked logs
+      for(let j=0; j < 2 + Math.floor(Math.random() * 4); j++) {
+        logs.push({ timestamp: new Date(new Date(day).setHours(8 + j*2)), type: 'smoked' });
+      }
+      // Add 1-3 craving logs
+      for(let j=0; j < 1 + Math.floor(Math.random() * 3); j++) {
+        logs.push({ timestamp: new Date(new Date(day).setHours(9 + j*3)), type: 'craving' });
+      }
+  }
+   // Add a craving today
+  logs.push({ timestamp: new Date(new Date().setHours(10)), type: 'craving', trigger: 'Stress' });
+
+  return {
+    isSmoker: true,
+    consecutiveSmokeFreeDays: 2, // Manually set for demo clarity
+    logs: logs.sort((a,b) => a.timestamp.getTime() - b.timestamp.getTime()),
+  };
+}
+
+const nonSmokerData: SmokingCessationData = {
+  isSmoker: false,
+  consecutiveSmokeFreeDays: 0,
+  logs: [],
+};
+
 
 export function getDefaultSmartphoneData(): SmartphoneData {
   return {
@@ -81,37 +141,7 @@ export function getDefaultSmartphoneData(): SmartphoneData {
   };
 }
 
-// FIX: Add and export the missing 'calculateMedicationAdherence' function.
-export function calculateMedicationAdherence(patientData: PatientData): number {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
-
-    const activeSchedules = patientData.medications
-        .filter(med => med.is_active)
-        .flatMap(med => med.schedules);
-    
-    if (activeSchedules.length === 0) {
-        return 100;
-    }
-
-    const totalScheduledDoses = activeSchedules.length * 7;
-    
-    const takenLogsCount = patientData.medication_logs.filter(log => {
-        const logDate = new Date(log.taken_at);
-        const isRecent = logDate >= sevenDaysAgo;
-        const isScheduled = activeSchedules.some(s => s.id === log.schedule_id);
-        return isRecent && isScheduled;
-    }).length;
-
-    if (totalScheduledDoses === 0) {
-        return 100;
-    }
-
-    return Math.min(100, Math.round((takenLogsCount / totalScheduledDoses) * 100));
-}
-
-export const allPatients: PatientData[] = [
+export let allPatients: PatientData[] = [
     {
         id: 1,
         name: 'Jean Dupont',
@@ -121,42 +151,23 @@ export const allPatients: PatientData[] = [
         smartphone: highRiskSmartphoneData,
         medications: mockMedications,
         medication_logs: mockMedicationLogs,
+        emergency_contact_name: 'Marie Dupont',
+        emergency_contact_phone: '0612345678',
         code: 'TEST-123',
+        speechAnalysisHistory: createSpeechAnalysisHistory(),
+        smokingCessation: createSmokerData(),
+    },
+     {
+        id: 2,
+        name: 'Anne Martin',
+        age: 72,
+        condition: 'BPCO Stable',
+        measurements: createMeasurements(98, 75, 'stable'),
+        smartphone: stableSmartphoneData,
+        medications: [mockMedications[0]], // Only Spiriva
+        medication_logs: mockMedicationLogs.filter(l => l.schedule_id === 1),
+        code: 'DEMO-456',
+        speechAnalysisHistory: createSpeechAnalysisHistory(),
+        smokingCessation: nonSmokerData,
     }
 ];
-
-export function calculateRiskScore(patientData: PatientData): { score: number, level: RiskLevel } {
-    let score = 0;
-
-    // Vitals
-    const latestMeasurement = patientData.measurements.length > 0 ? patientData.measurements[patientData.measurements.length - 1] : null;
-    if (latestMeasurement) {
-        if (latestMeasurement.spo2 < 90) score += 30;
-        else if (latestMeasurement.spo2 < 92) score += 20;
-        else if (latestMeasurement.spo2 < 94) score += 10;
-        
-        if (latestMeasurement.heartRate > 110) score += 15;
-        else if (latestMeasurement.heartRate > 100) score += 10;
-    } else {
-        score += 10; // Penalty for no data
-    }
-    
-    // Smartphone Data
-    if (patientData.smartphone.activity.steps < 1500) score += 10;
-    if (patientData.smartphone.sleep.totalSleepHours < 5) score += 10;
-    if (patientData.smartphone.cough.coughFrequencyPerHour > 10) score += 15;
-    if (patientData.smartphone.cough.respiratoryRate > 22) score += 15;
-    if (patientData.smartphone.environment.airQualityIndex > 150) score += 5;
-
-    // Reported Data
-    if (patientData.smartphone.reported.symptoms.breathlessness > 7) score += 20;
-    if (patientData.smartphone.reported.qualityOfLife.CAT > 25) score += 10;
-    if (patientData.smartphone.reported.medication.adherencePercent < 80) score += 10;
-
-    score = Math.min(100, Math.max(0, score));
-    let level: RiskLevel = 'Low';
-    if (score > 70) level = 'High';
-    else if (score > 40) level = 'Medium';
-
-    return { score: Math.round(score), level };
-}

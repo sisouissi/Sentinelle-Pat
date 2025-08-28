@@ -120,7 +120,7 @@ export function AddPatientModal({ isOpen, onClose, onAddPatient }: AddPatientMod
             <button
               type="submit"
               disabled={isSaving}
-              className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-wait"
+              className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg hover:shadow-md disabled:from-blue-400 disabled:to-blue-500 disabled:cursor-wait transition-all transform hover:scale-105 active:scale-95"
             >
               {isSaving ? t('addPatientModal.adding') : t('addPatientModal.addAndGetCode')}
             </button>
@@ -141,26 +141,28 @@ export function AddPatientModal({ isOpen, onClose, onAddPatient }: AddPatientMod
             <div className="mt-2 flex items-center justify-center gap-2">
                  <p className="text-3xl font-bold tracking-widest text-blue-600 bg-blue-50 px-4 py-2 rounded-lg border-2 border-dashed border-blue-200">
                     {addedPatient?.code}
-                </p>
-                <button onClick={handleCopyCode} className="p-3 bg-slate-100 rounded-lg hover:bg-slate-200">
-                    <ClipboardCopy className="w-5 h-5 text-slate-600" />
-                </button>
+                 </p>
+                 <button onClick={handleCopyCode} className="ml-2 p-2 rounded-lg bg-slate-200 hover:bg-slate-300 transition-colors">
+                     {copied ? <CheckCircle className="w-5 h-5 text-green-600"/> : <ClipboardCopy className="w-5 h-5 text-slate-600"/>}
+                 </button>
             </div>
-            {copied && <p className="text-xs text-green-600 mt-2 animate-fade-in">{t('addPatientModal.copied')}</p>}
+             <p className={`mt-2 text-sm font-semibold transition-opacity duration-300 ${copied ? 'opacity-100 text-green-600' : 'opacity-0'}`}>
+                {t('addPatientModal.copied')}
+             </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex justify-end gap-3 pt-4">
              <button
               type="button"
-              onClick={resetForm}
-              className="w-full px-4 py-2 text-sm font-semibold text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200"
+              onClick={() => { resetForm(); }}
+              className="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200"
             >
               {t('addPatientModal.addAnother')}
             </button>
             <button
               type="button"
               onClick={handleClose}
-              className="w-full px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg hover:shadow-md transition-all transform hover:scale-105 active:scale-95"
             >
               {t('addPatientModal.done')}
             </button>
@@ -169,39 +171,21 @@ export function AddPatientModal({ isOpen, onClose, onAddPatient }: AddPatientMod
   )
 
   return (
-    <div 
-        className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
-        aria-labelledby="modal-title"
-        role="dialog"
-        aria-modal="true"
-        onClick={handleClose}
-    >
-      <div 
-        className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
-        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
-      >
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-100 p-2 rounded-full">
-              <User className="w-6 h-6 text-blue-600" />
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={handleClose}>
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+             <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="bg-blue-100 p-2 rounded-full"><User className="w-6 h-6 text-blue-600" /></div>
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-800">{addedPatient ? t('addPatientModal.titleSuccess', { name: addedPatient.name }) : t('addPatientModal.title')}</h2>
+                        <p className="text-sm text-slate-500">{addedPatient ? t('addPatientModal.subtitleSuccess') : t('addPatientModal.subtitle')}</p>
+                    </div>
+                </div>
+                <button onClick={handleClose} className="p-1 rounded-full text-slate-400 hover:bg-slate-200"><XCircle className="w-6 h-6" /></button>
             </div>
-            <div>
-              <h2 id="modal-title" className="text-lg font-bold text-slate-800">
-                {addedPatient ? t('addPatientModal.titleSuccess', {name: addedPatient.name}) : t('addPatientModal.title') }
-              </h2>
-              <p className="text-sm text-slate-500">
-                  {addedPatient ? t('addPatientModal.subtitleSuccess') : t('addPatientModal.subtitle')}
-              </p>
-            </div>
-          </div>
-           <button onClick={handleClose} className="p-1 rounded-full text-slate-400 hover:bg-slate-200">
-                <XCircle className="w-6 h-6" />
-           </button>
+            
+            {addedPatient ? renderSuccess() : renderForm()}
         </div>
-
-        {addedPatient ? renderSuccess() : renderForm()}
-        
-      </div>
     </div>
   );
 }

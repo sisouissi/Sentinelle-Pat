@@ -7,27 +7,28 @@ import { useTranslation } from '../contexts/LanguageContext';
 interface RiskScoreProps {
   score: number;
   level: RiskLevel;
+  style?: React.CSSProperties;
 }
 
-export function RiskScore({ score, level }: RiskScoreProps): React.ReactNode {
+export function RiskScore({ score, level, style }: RiskScoreProps): React.ReactNode {
   const { t } = useTranslation();
   const levelInfo = {
     Low: {
-      bgColor: 'bg-green-500',
+      bgColor: 'bg-gradient-to-br from-green-400 to-green-600',
       textColor: 'text-green-50',
       icon: <ShieldCheck className="w-8 h-8" />,
       title: t('riskScore.low.title'),
       description: t('riskScore.low.description')
     },
     Medium: {
-      bgColor: 'bg-yellow-500',
+      bgColor: 'bg-gradient-to-br from-yellow-400 to-yellow-500',
       textColor: 'text-yellow-50',
       icon: <ShieldAlert className="w-8 h-8" />,
       title: t('riskScore.medium.title'),
       description: t('riskScore.medium.description')
     },
     High: {
-      bgColor: 'bg-red-500',
+      bgColor: 'bg-gradient-to-br from-red-500 to-red-600',
       textColor: 'text-red-50',
       icon: <AlertTriangle className="w-8 h-8" />,
       title: t('riskScore.high.title'),
@@ -38,7 +39,9 @@ export function RiskScore({ score, level }: RiskScoreProps): React.ReactNode {
   const currentLevel = levelInfo[level];
 
   return (
-    <div className={`col-span-1 md:col-span-3 p-6 rounded-2xl text-white transition-all duration-300 ${currentLevel.bgColor} flex items-center shadow-lg`}>
+    <div 
+      style={style}
+      className={`col-span-1 md:col-span-3 p-6 rounded-2xl text-white transition-all duration-300 ${currentLevel.bgColor} flex items-center shadow-lg hover:shadow-xl animate-fade-in`}>
         <div className={`mr-4 p-3 rounded-full bg-white/20 ${currentLevel.textColor}`}>
             {currentLevel.icon}
         </div>

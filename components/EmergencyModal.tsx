@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useTranslation } from '../contexts/LanguageContext';
 import { Sos, XCircle, Phone, MessageSquareText, AlertTriangle } from './icons';
@@ -52,7 +53,7 @@ export function EmergencyModal({ isOpen, onClose, onGoToProfile, patientName, co
                         <p className="text-slate-600 mt-2">{t('emergency.confirmMessage')}</p>
                         <p className="text-xl font-semibold text-blue-600 my-3">{contactName}</p>
                         <div className="flex flex-col gap-3 mt-6">
-                            <button onClick={handleCall} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-lg font-bold text-white bg-red-600 rounded-lg hover:bg-red-700">
+                            <button onClick={handleCall} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-lg font-bold text-white bg-gradient-to-br from-red-500 to-red-700 rounded-lg hover:shadow-lg transition-all transform hover:scale-105 active:scale-95">
                                 <Phone className="w-6 h-6" />
                                 {t('emergency.callButton')}
                             </button>

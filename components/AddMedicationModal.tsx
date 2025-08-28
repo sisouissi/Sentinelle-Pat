@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import type { Medication } from '../types';
 import * as supabaseService from '../services/supabaseService';
@@ -153,7 +154,7 @@ export function AddMedicationModal({ isOpen, onClose, patientId, onSave, medicat
                         </div>
                         <div className="flex gap-3">
                             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200">{t('addPatientModal.cancel')}</button>
-                            <button type="submit" disabled={isSaving} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-blue-400">
+                            <button type="submit" disabled={isSaving} className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg hover:shadow-md disabled:opacity-75 transition-all transform hover:scale-105 active:scale-95">
                                 {isSaving ? t('treatment.addModal.saving') : t('treatment.addModal.save')}
                             </button>
                         </div>

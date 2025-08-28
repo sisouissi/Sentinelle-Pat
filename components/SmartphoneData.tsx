@@ -14,7 +14,7 @@ interface SummaryCardProps {
 }
 
 const SummaryCard = ({ title, icon, children, cardClassName, titleClassName, iconClassName }: SummaryCardProps) => (
-    <div className={`p-3 rounded-lg flex flex-col gap-2 transition-colors duration-300 ${cardClassName}`}>
+    <div className={`p-4 rounded-2xl flex flex-col gap-2 transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 ${cardClassName}`}>
         <div className="flex items-center gap-2">
             <div className={iconClassName}>{icon}</div>
             <h4 className={`text-sm font-semibold ${titleClassName}`}>{title}</h4>
@@ -50,7 +50,7 @@ export function SmartphoneData({ data, isAiFilterActive }: SmartphoneDataProps):
   const getCardStyle = (warnings: boolean[]) => {
     if (!isAiFilterActive) {
       return {
-        card: 'bg-slate-100/70',
+        card: 'bg-white/70 backdrop-blur-md',
         title: 'text-slate-700',
         icon: 'text-slate-500',
       };

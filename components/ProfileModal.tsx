@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import type { PatientData } from '../types';
 import * as supabaseService from '../services/supabaseService';
@@ -89,7 +90,7 @@ export function ProfileModal({ isOpen, onClose, patientData, onUpdate }: Profile
                          {error && <p className="text-sm text-red-600">{error}</p>}
                          {success && <p className="text-sm text-green-600">{success}</p>}
                         <div className="flex justify-end pt-2">
-                            <button type="submit" disabled={isSaving} className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-blue-400">
+                            <button type="submit" disabled={isSaving} className="px-5 py-2 text-sm font-semibold text-white bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg hover:shadow-md disabled:opacity-75 transition-all transform hover:scale-105 active:scale-95">
                                 {isSaving ? t('profile.saving') : t('profile.save')}
                             </button>
                         </div>

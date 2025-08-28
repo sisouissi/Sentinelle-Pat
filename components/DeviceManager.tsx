@@ -15,7 +15,7 @@ interface DeviceManagerProps {
 const deviceManager = DeviceManagerService.getInstance();
 
 const StatCard = ({ title, value, icon, valueColor }: {title: string, value: string | number, icon: React.ReactNode, valueColor?: string}) => (
-    <div className="bg-slate-100/80 backdrop-blur-sm p-3 rounded-xl col-span-1">
+    <div className="bg-slate-100/80 backdrop-blur-sm p-3 rounded-xl col-span-1 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
         <div className="flex items-center justify-between pb-1">
             <h3 className="text-xs font-medium text-slate-500">{title}</h3>
             {icon}
@@ -68,11 +68,11 @@ const DeviceCard = ({ device, onConnect, onDisconnect, isConnecting }: { device:
             )}
             <div className="flex">
                 {device.isConnected ? (
-                     <button onClick={() => onDisconnect(device.id)} disabled={isConnecting} className="w-full px-4 py-1.5 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:bg-slate-400">
+                     <button onClick={() => onDisconnect(device.id)} disabled={isConnecting} className="w-full px-4 py-2 text-sm font-semibold text-white bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg disabled:bg-slate-400 disabled:from-slate-400 transition-all transform hover:scale-105 active:scale-95">
                         {t('deviceManager.disconnect')}
                     </button>
                 ) : (
-                    <button onClick={() => onConnect(device.id)} disabled={isConnecting} className="w-full px-4 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-slate-400">
+                    <button onClick={() => onConnect(device.id)} disabled={isConnecting} className="w-full px-4 py-2 text-sm font-semibold text-white bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-lg disabled:bg-slate-400 disabled:from-slate-400 transition-all transform hover:scale-105 active:scale-95">
                         {isConnecting ? t('deviceManager.connecting') : t('deviceManager.connect')}
                     </button>
                 )}
@@ -85,7 +85,7 @@ const LiveReadingDisplay = ({ reading }: { reading: DeviceReading | null }) => {
     const { t } = useTranslation();
     if (!reading) {
         return (
-            <div className="flex flex-col items-center justify-center h-48 text-center text-slate-500 bg-slate-100 rounded-xl">
+            <div className="flex flex-col items-center justify-center h-48 text-center text-slate-500 bg-slate-100 rounded-xl shadow-inner">
                 <Activity className="w-10 h-10 mb-2 opacity-50" />
                 <p className="font-semibold">{t('deviceManager.waitingForData')}</p>
                 <p className="text-sm">{t('deviceManager.connectToSeeData')}</p>
@@ -93,7 +93,7 @@ const LiveReadingDisplay = ({ reading }: { reading: DeviceReading | null }) => {
         );
     }
     return (
-        <div className="bg-slate-100 p-4 rounded-xl animate-fade-in">
+        <div className="bg-slate-100 p-4 rounded-xl animate-fade-in shadow-inner">
              <div className="flex justify-between items-baseline mb-4">
                 <h4 className="font-semibold text-slate-700">{t('deviceManager.liveMeasurement')}</h4>
                 <p className="text-xs text-slate-500">{t('deviceManager.quality')}: {reading.quality}%</p>

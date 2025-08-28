@@ -6,7 +6,7 @@ import { translations as arTranslations } from '../locales/ar';
 type Language = 'fr' | 'en' | 'ar';
 type Translations = typeof frTranslations;
 
-// FIX: Define a utility type to generate all possible dot-notation paths from the translations object.
+// Utility type to generate all possible dot-notation paths from the translations object.
 // This creates a union of strings like "app.loading", "header.title", etc., which provides
 // type safety and autocompletion for the `t` function.
 type DotPrefix<T extends string> = T extends "" ? "" : `.${T}`;
@@ -49,37 +49,38 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return 'fr';
   });
 
-  const setLanguage = (lang: Language) => {
+  const setLanguage = useCallback((lang: Language) => {
     localStorage.setItem('sentinelle_language', lang);
     setLanguageState(lang);
-  };
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
   }, [language]);
   
-  const currentTranslations = useMemo(() => translationsMap[language], [language]);
-
-  const t = useCallback((key: TranslationKey, options?: { [key: string]: string | number }) => {
-    let translation = getNestedTranslation(currentTranslations, key) || key;
+  const value = useMemo(() => {
+    const currentTranslations = translationsMap[language];
     
-    if (options) {
-      Object.keys(options).forEach(optionKey => {
-        translation = translation.replace(`{{${optionKey}}}`, String(options[optionKey]));
-      });
-    }
+    const t = (key: TranslationKey, options?: { [key: string]: string | number }) => {
+      let translation = getNestedTranslation(currentTranslations, key) || key;
+      
+      if (options) {
+        Object.keys(options).forEach(optionKey => {
+          translation = translation.replace(`{{${optionKey}}}`, String(options[optionKey]));
+        });
+      }
 
-    return translation;
-  }, [currentTranslations]);
+      return translation;
+    };
 
-
-  const value = {
-    language,
-    setLanguage,
-    translations: currentTranslations,
-    t,
-  };
+    return {
+      language,
+      setLanguage,
+      translations: currentTranslations,
+      t,
+    };
+  }, [language, setLanguage]);
 
   return (
     <LanguageContext.Provider value={value}>
